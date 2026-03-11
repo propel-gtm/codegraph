@@ -18,6 +18,27 @@ If neither provider has data, the CLI exits with an error.
 
 ## Install
 
+Use without installing:
+
+```bash
+npx @propel-code/codegraph --help
+```
+
+Install globally:
+
+```bash
+npm install -g @propel-code/codegraph
+codegraph --help
+```
+
+Use with Bun:
+
+```bash
+bunx @propel-code/codegraph --help
+```
+
+For local development:
+
 ```bash
 cd /Users/tony/dev/codegraph
 bun install
@@ -28,55 +49,55 @@ bun install
 Generate the default YTD SVG using all available providers:
 
 ```bash
-bun src/cli.ts
+codegraph
 ```
 
 Generate a merged last-365 SVG:
 
 ```bash
-bun src/cli.ts --last-365
+codegraph --last-365
 ```
 
 Generate a specific calendar year:
 
 ```bash
-bun src/cli.ts --year 2025
+codegraph --year 2025
 ```
 
 Generate Codex-only output:
 
 ```bash
-bun src/cli.ts --provider codex
+codegraph --provider codex
 ```
 
 Generate Claude-only output:
 
 ```bash
-bun src/cli.ts --provider claude
+codegraph --provider claude
 ```
 
 Generate JSON instead of SVG:
 
 ```bash
-bun src/cli.ts --format json
+codegraph --format json
 ```
 
 Write to a custom file:
 
 ```bash
-bun src/cli.ts --provider all --year 2025 --output ./out/codegraph-2025.svg
+codegraph --provider all --year 2025 --output ./out/codegraph-2025.svg
 ```
 
 Show help:
 
 ```bash
-bun src/cli.ts --help
+codegraph --help
 ```
 
 ## CLI reference
 
 ```bash
-bun src/cli.ts [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--format svg|json] [--output PATH]
+codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--format svg|json] [--output PATH]
 ```
 
 Options:
@@ -137,7 +158,7 @@ Single-provider output adds the provider suffix:
 You can override that root with:
 
 ```bash
-bun src/cli.ts --provider codex --codex-home /path/to/.codex
+codegraph --provider codex --codex-home /path/to/.codex
 ```
 
 ### Claude Code
@@ -151,7 +172,7 @@ bun src/cli.ts --provider codex --codex-home /path/to/.codex
 You can override that root with:
 
 ```bash
-bun src/cli.ts --provider claude --claude-config-dir /path/to/.claude
+codegraph --provider claude --claude-config-dir /path/to/.claude
 ```
 
 ## Aggregation behavior
@@ -238,18 +259,24 @@ Each `summary.stats` object contains:
 
 - `src/cli.ts`
   CLI argument parsing, provider selection, date-range selection, and file output.
+- `src/bin.ts`
+  Node-facing executable wrapper for published installs.
 - `src/codex.ts`
   Codex session scanning and token aggregation.
 - `src/claude.ts`
   Claude Code session scanning and token aggregation.
 - `src/summary.ts`
   Shared daily/model aggregation and merged-summary utilities.
+- `src/update.ts`
+  Package version checks for published CLI installs.
 - `src/heatmap.ts`
   SVG rendering.
 - `src/utils.ts`
   Shared date, formatting, and filesystem helpers.
 - `src/types.ts`
   Shared TypeScript types.
+- `tsconfig.build.json`
+  Emit configuration for the publishable `dist/` CLI build.
 
 ## Development
 
@@ -271,6 +298,12 @@ Run the CLI during development:
 bun run start -- --provider all --ytd
 ```
 
+Disable update checks:
+
+```bash
+CODEGRAPH_DISABLE_UPDATE_CHECK=1 codegraph --help
+```
+
 ## Verification
 
 Typical verification loop:
@@ -278,8 +311,9 @@ Typical verification loop:
 ```bash
 bun run typecheck
 bun test
-bun src/cli.ts --help
-bun src/cli.ts --provider codex --ytd
-bun src/cli.ts --provider all --last-365
-bun src/cli.ts --provider claude --year 2025 --format json
+bun run build
+npx @propel-code/codegraph --help
+node dist/cli.js --provider codex --ytd
+node dist/cli.js --provider all --last-365
+node dist/cli.js --provider claude --year 2025 --format json
 ```

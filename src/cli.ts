@@ -1,5 +1,3 @@
-#!/usr/bin/env bun
-
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -8,6 +6,7 @@ import { loadCodexUsage } from "./codex.ts";
 import { renderHeatmapSvg } from "./heatmap.ts";
 import { mergeUsageSummaries } from "./summary.ts";
 import type { ProviderId, UsageSummary } from "./types.ts";
+import { getUpgradeNotice } from "./update.ts";
 import {
   ensureParentDirectory,
   getCalendarYearDates,
@@ -214,8 +213,14 @@ async function main(): Promise<void> {
       },
       null,
       2,
-    )}\n`,
+      )}\n`,
   );
+
+  const upgradeNotice = await getUpgradeNotice();
+
+  if (upgradeNotice) {
+    process.stderr.write(`${upgradeNotice}\n`);
+  }
 }
 
 main().catch((error: unknown) => {
