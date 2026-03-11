@@ -1,0 +1,285 @@
+# codegraph
+
+`codegraph` is a Bun + TypeScript CLI that turns local AI coding session history into a contribution-style usage graph.
+
+## Supported providers
+
+`codegraph` currently supports:
+
+- Codex
+- Claude Code
+- merged `all` view across both providers
+
+By default, `codegraph` runs with `--provider all`.
+
+If both providers have data in the requested window, the result is merged.
+If only one provider has data, the result falls back to that provider.
+If neither provider has data, the CLI exits with an error.
+
+## Install
+
+```bash
+cd /Users/tony/dev/codegraph
+bun install
+```
+
+## Quickstart
+
+Generate the default YTD SVG using all available providers:
+
+```bash
+bun src/cli.ts
+```
+
+Generate a merged last-365 SVG:
+
+```bash
+bun src/cli.ts --last-365
+```
+
+Generate a specific calendar year:
+
+```bash
+bun src/cli.ts --year 2025
+```
+
+Generate Codex-only output:
+
+```bash
+bun src/cli.ts --provider codex
+```
+
+Generate Claude-only output:
+
+```bash
+bun src/cli.ts --provider claude
+```
+
+Generate JSON instead of SVG:
+
+```bash
+bun src/cli.ts --format json
+```
+
+Write to a custom file:
+
+```bash
+bun src/cli.ts --provider all --year 2025 --output ./out/codegraph-2025.svg
+```
+
+Show help:
+
+```bash
+bun src/cli.ts --help
+```
+
+## CLI reference
+
+```bash
+bun src/cli.ts [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--format svg|json] [--output PATH]
+```
+
+Options:
+
+- `--ytd`
+  Render from January 1 of the current year through today.
+- `--last-365`
+  Render a rolling 365-day window through today.
+- `--year YYYY`
+  Render a specific calendar year.
+- `--provider codex|claude|all`
+  Choose a single provider or merge both. Default is `all`.
+- `--format svg|json`
+  Output either SVG or JSON. Default is inferred from `--output`, otherwise `svg`.
+- `--output PATH`
+  Override the output file location.
+- `--codex-home PATH`
+  Override the Codex data directory.
+- `--claude-config-dir PATH`
+  Override the Claude config directory.
+- `--help`
+  Print usage information.
+
+Rules:
+
+- If no date mode is passed, `codegraph` defaults to YTD.
+- `--ytd`, `--last-365`, and `--year` are mutually exclusive.
+- If `--year` is the current year, the end date is clamped to today instead of rendering future empty days.
+- Default output names depend on both the date window and provider.
+
+## Default output files
+
+Merged `all` output:
+
+- `codegraph-ytd.svg`
+- `codegraph-ytd.json`
+- `codegraph-last-365.svg`
+- `codegraph-last-365.json`
+- `codegraph-2025.svg`
+- `codegraph-2025.json`
+
+Single-provider output adds the provider suffix:
+
+- `codegraph-ytd-codex.svg`
+- `codegraph-ytd-claude.svg`
+- `codegraph-last-365-codex.json`
+- `codegraph-2025-claude.svg`
+
+## Data sources
+
+### Codex
+
+`codegraph` reads Codex session files from:
+
+- `$CODEX_HOME/sessions`
+- `~/.codex/sessions` if `CODEX_HOME` is not set
+
+You can override that root with:
+
+```bash
+bun src/cli.ts --provider codex --codex-home /path/to/.codex
+```
+
+### Claude Code
+
+`codegraph` reads Claude Code session files from:
+
+- `$CLAUDE_CONFIG_DIR/projects`
+- `~/.claude/projects`
+- `~/.config/claude/projects`
+
+You can override that root with:
+
+```bash
+bun src/cli.ts --provider claude --claude-config-dir /path/to/.claude
+```
+
+## Aggregation behavior
+
+### Codex parsing
+
+`codegraph` treats Codex `event_msg` records with `payload.type === "token_count"` as the source of truth.
+
+Behavior:
+
+- if `total_token_usage` is present, it is treated as cumulative usage
+- repeated status events are de-duplicated by subtracting the previous cumulative total
+- if `last_token_usage` is present on the first relevant event, that value is used directly
+- model names are normalized to remove trailing date suffixes such as `-20251101`
+
+### Claude Code parsing
+
+`codegraph` reads Claude assistant message usage from `message.usage`.
+
+Behavior:
+
+- `input` includes `input_tokens + cache_read_input_tokens`
+- `output` includes `output_tokens + cache_creation_input_tokens`
+- cache tokens are preserved in `cache.input` and `cache.output`
+- zero-token Claude records are ignored
+- model names are normalized the same way as Codex names
+
+### Merged provider behavior
+
+When `--provider all` is used:
+
+- daily totals are merged by date
+- model totals are merged by model name
+- last-30-day totals are recomputed from the merged daily rows
+- parser stats are summed across providers
+
+## What the SVG shows
+
+- Monday-first contribution-style heatmap
+- total tokens in the last 30 days
+- cumulative input tokens
+- cumulative output tokens
+- cumulative total tokens
+- most-used model
+- recent-most-used model
+- longest streak
+- current streak
+
+## JSON export shape
+
+The JSON export contains:
+
+- `version`
+- `generatedAt`
+- `summary.provider`
+- `summary.start`
+- `summary.end`
+- `summary.daily[]`
+- `summary.metrics`
+- `summary.insights`
+- `summary.stats`
+
+Each daily row contains:
+
+- `date`
+- `input`
+- `output`
+- `cache.input`
+- `cache.output`
+- `total`
+- `breakdown[]`
+
+Each `summary.stats` object contains:
+
+- `sourceLabel`
+- `sourcePaths[]`
+- `filesScanned`
+- `filesFailed`
+- `linesScanned`
+- `badLines`
+- `eventsConsumed`
+
+## Project structure
+
+- `src/cli.ts`
+  CLI argument parsing, provider selection, date-range selection, and file output.
+- `src/codex.ts`
+  Codex session scanning and token aggregation.
+- `src/claude.ts`
+  Claude Code session scanning and token aggregation.
+- `src/summary.ts`
+  Shared daily/model aggregation and merged-summary utilities.
+- `src/heatmap.ts`
+  SVG rendering.
+- `src/utils.ts`
+  Shared date, formatting, and filesystem helpers.
+- `src/types.ts`
+  Shared TypeScript types.
+
+## Development
+
+Run tests:
+
+```bash
+bun test
+```
+
+Run static typechecking:
+
+```bash
+bun run typecheck
+```
+
+Run the CLI during development:
+
+```bash
+bun run start -- --provider all --ytd
+```
+
+## Verification
+
+Typical verification loop:
+
+```bash
+bun run typecheck
+bun test
+bun src/cli.ts --help
+bun src/cli.ts --provider codex --ytd
+bun src/cli.ts --provider all --last-365
+bun src/cli.ts --provider claude --year 2025 --format json
+```
