@@ -142,6 +142,13 @@ test("renderHeatmapSvg returns a titled SVG document", () => {
   assert.doesNotMatch(svg, /Mar 7/);
 });
 
+test("renderHeatmapSvg scales short ranges to use more space", () => {
+  const svg = renderHeatmapSvg(sampleSummary);
+
+  assert.match(svg, /viewBox="0 0 940 500"/);
+  assert.match(svg, /<rect x="62" y="154" width="24" height="24" rx="6" fill="/);
+});
+
 test("renderHeatmapPng returns a PNG image", { timeout: 60000 }, () => {
   const png = renderHeatmapPng(sampleSummary, {
     spend: {

@@ -38,6 +38,19 @@ interface HeatmapRenderOptions {
   spend?: UsageSpendEstimate | null;
 }
 
+interface GridLayout {
+  cellRadius: number;
+  cellSize: number;
+  gap: number;
+  gridHeight: number;
+  gridWidth: number;
+  height: number;
+  left: number;
+  padding: number;
+  top: number;
+  width: number;
+}
+
 const TITLE_FONT_STACK =
   "'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 const UI_FONT_STACK =
@@ -233,6 +246,44 @@ function formatUsd(value: number): string {
   }).format(value);
 }
 
+function resolveGridLayout(weekCount: number): GridLayout {
+  const minCanvasWidth = 940;
+  const minCanvasHeight = 438;
+  const padding = 32;
+  const left = 62;
+  const top = 154;
+  const gap = 4;
+  const minCellSize = 11;
+  const maxCellSize = 24;
+  const availableGridWidth = minCanvasWidth - left - padding;
+  const fittedCellSize =
+    weekCount > 0
+      ? Math.floor((availableGridWidth + gap) / weekCount) - gap
+      : minCellSize;
+  const cellSize = Math.max(
+    minCellSize,
+    Math.min(maxCellSize, fittedCellSize),
+  );
+  const gridWidth = Math.max(0, weekCount * (cellSize + gap) - gap);
+  const gridHeight = 7 * (cellSize + gap) - gap;
+  const legendY = top + gridHeight + 34;
+  const dividerY = legendY + 38;
+  const insightY = dividerY + 28;
+
+  return {
+    cellRadius: Math.max(3, Math.min(6, Math.round(cellSize * 0.25))),
+    cellSize,
+    gap,
+    gridHeight,
+    gridWidth,
+    height: Math.max(minCanvasHeight, insightY + 54),
+    left,
+    padding,
+    top,
+    width: Math.max(minCanvasWidth, left + gridWidth + padding),
+  };
+}
+
 export function renderHeatmapSvg(
   summary: UsageSummary,
   options: HeatmapRenderOptions = {},
@@ -243,15 +294,18 @@ export function renderHeatmapSvg(
   );
   const { weeks, monthLabels } = buildWeeks(summary.start, summary.end);
   const maxDailyTotal = Math.max(...summary.daily.map((day) => day.total), 0);
-  const cellSize = 11;
-  const gap = 4;
-  const left = 62;
-  const top = 154;
-  const gridWidth = weeks.length * (cellSize + gap) - gap;
-  const gridHeight = 7 * (cellSize + gap) - gap;
-  const width = Math.max(940, left + gridWidth + 32);
-  const height = 438;
-  const padding = 32;
+  const {
+    cellRadius,
+    cellSize,
+    gap,
+    gridHeight,
+    gridWidth,
+    height,
+    left,
+    padding,
+    top,
+    width,
+  } = resolveGridLayout(weeks.length);
   const mostUsedModelName = summary.insights.mostUsedModel
     ? truncate(summary.insights.mostUsedModel.name, 18)
     : "n/a";
@@ -281,6 +335,7 @@ export function renderHeatmapSvg(
   const dividerY = legendY + 38;
   const insightY = dividerY + 28;
   const insightColumnWidth = (width - padding * 2) / 4;
+  const heatmapLabelFontSize = cellSize >= 20 ? 14 : 13;
 
   const monthText = monthLabels
     .map((label, index) => {
@@ -291,7 +346,7 @@ export function renderHeatmapSvg(
       const x = left + index * (cellSize + gap) + 1;
       const monthMonogram = label.slice(0, 1).toUpperCase();
 
-      return `<text x="${x}" y="${top - 18}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="13" font-weight="600">${escapeXml(monthMonogram)}</text>`;
+      return `<text x="${x}" y="${top - 18}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="${heatmapLabelFontSize}" font-weight="600">${escapeXml(monthMonogram)}</text>`;
     })
     .join("");
 
@@ -302,7 +357,7 @@ export function renderHeatmapSvg(
 
     const y = top + index * (cellSize + gap) + cellSize - 1;
 
-    return `<text x="24" y="${y}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="13" font-weight="600">${escapeXml(label.slice(0, 1).toUpperCase())}</text>`;
+    return `<text x="24" y="${y}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="${heatmapLabelFontSize}" font-weight="600">${escapeXml(label.slice(0, 1).toUpperCase())}</text>`;
   }).join("");
 
   const cells = weeks
@@ -320,7 +375,7 @@ export function renderHeatmapSvg(
           );
 
           return `
-            <rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="3" fill="${fill}">
+            <rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="${cellRadius}" fill="${fill}">
               ${title ? `<title>${escapeXml(title)}</title>` : ""}
             </rect>
           `;

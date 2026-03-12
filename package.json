@@ -11,7 +11,7 @@
     "package.json"
   ],
   "bin": {
-    "codegraph": "./dist/bin.js"
+    "codegraph": "dist/bin.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
