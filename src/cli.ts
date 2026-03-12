@@ -1,23 +1,22 @@
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { loadClaudeUsage } from "./claude.ts";
-import { loadCodexUsage } from "./codex.ts";
+import {
+  getDefaultOutputName,
+  loadRequestedSummaryOrThrow,
+  parseProvider,
+  resolveDateSelection,
+} from "./codegraph.ts";
+import { startDashboardServer } from "./dashboard.ts";
 import { renderHeatmapPng, renderHeatmapSvg } from "./heatmap.ts";
 import { estimateUsageSpend } from "./pricing.ts";
-import { mergeUsageSummaries } from "./summary.ts";
-import type { ProviderId, UsageSummary } from "./types.ts";
 import { getUpgradeNotice } from "./update.ts";
 import {
   ensureParentDirectory,
-  getCalendarYearDates,
-  getLast365DaysDates,
-  getYtdDates,
   inferFormat,
 } from "./utils.ts";
 
 const JSON_EXPORT_VERSION = "0.2.0";
-const PROVIDERS: ProviderId[] = ["codex", "claude", "all"];
 
 const HELP_TEXT = `codegraph
 
@@ -25,11 +24,16 @@ Generate a local AI coding usage heatmap from Codex and Claude Code session file
 
 Usage:
   codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--format svg|png|json] [--output ./codegraph-ytd.png]
+  codegraph --dashboard [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--port 4269] [--refresh-minutes 5]
 
 Options:
   --format, -f              Output format: svg, png, or json
   --output, -o              Output path
   --provider                Provider selection: codex, claude, or all
+  --dashboard               Start a persistent local dashboard server
+  --host                    Dashboard host (default: 127.0.0.1)
+  --port                    Dashboard port (default: 4269)
+  --refresh-minutes         Dashboard refresh cadence in minutes (default: 5)
   --ytd                     Render from January 1 of the current year through today
   --last-365                Render the last 365 days through today
   --year                    Render a calendar year (for example: --year 2025)
@@ -42,83 +46,46 @@ function printHelp(): void {
   process.stdout.write(HELP_TEXT);
 }
 
-function parseProvider(value?: string): ProviderId {
-  const normalized = value?.trim().toLowerCase() ?? "all";
-
-  if (PROVIDERS.includes(normalized as ProviderId)) {
-    return normalized as ProviderId;
+function parseYear(value?: string): number | undefined {
+  if (value === undefined) {
+    return undefined;
   }
 
-  throw new Error(`Unsupported provider "${value}". Use codex, claude, or all.`);
+  const parsed = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(parsed)) {
+    throw new Error("--year must be a 4-digit calendar year.");
+  }
+
+  return parsed;
 }
 
-function getDefaultLabel(year?: number, isLast365 = false): string {
-  if (year) {
-    return String(year);
+function parsePort(value?: string): number {
+  if (value === undefined) {
+    return 4269;
   }
 
-  return isLast365 ? "last-365" : "ytd";
+  const parsed = Number.parseInt(value, 10);
+
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 65535) {
+    throw new Error("--port must be an integer between 0 and 65535.");
+  }
+
+  return parsed;
 }
 
-function getDefaultOutputName(
-  format: "svg" | "png" | "json",
-  label: string,
-  provider: ProviderId,
-): string {
-  const providerSuffix = provider === "all" ? "" : `-${provider}`;
-  const extension =
-    format === "json"
-      ? "json"
-      : format === "png"
-        ? "png"
-        : "svg";
-
-  return `./codegraph-${label}${providerSuffix}.${extension}`;
-}
-
-async function loadRequestedSummary(
-  provider: ProviderId,
-  start: Date,
-  end: Date,
-  codexHome?: string,
-  claudeConfigDir?: string,
-): Promise<UsageSummary | null> {
-  const codexPromise =
-    provider === "codex" || provider === "all"
-      ? loadCodexUsage(
-          codexHome
-            ? { start, end, codexHome }
-            : { start, end },
-        )
-      : Promise.resolve(null);
-  const claudePromise =
-    provider === "claude" || provider === "all"
-      ? loadClaudeUsage(
-          claudeConfigDir
-            ? { start, end, claudeConfigDir }
-            : { start, end },
-        )
-      : Promise.resolve(null);
-  const [codexSummary, claudeSummary] = await Promise.all([
-    codexPromise,
-    claudePromise,
-  ]);
-
-  if (provider === "codex") {
-    return codexSummary;
+function parseRefreshMinutes(value?: string): number {
+  if (value === undefined) {
+    return 5;
   }
 
-  if (provider === "claude") {
-    return claudeSummary;
+  const parsed = Number.parseFloat(value);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error("--refresh-minutes must be a positive number.");
   }
 
-  return mergeUsageSummaries(
-    [codexSummary, claudeSummary].filter(
-      (summary): summary is UsageSummary => summary !== null,
-    ),
-    start,
-    end,
-  );
+  return parsed;
 }
 
 async function main(): Promise<void> {
@@ -127,6 +94,10 @@ async function main(): Promise<void> {
       format: { type: "string", short: "f" },
       output: { type: "string", short: "o" },
       provider: { type: "string" },
+      dashboard: { type: "boolean" },
+      host: { type: "string" },
+      port: { type: "string" },
+      "refresh-minutes": { type: "string" },
       ytd: { type: "boolean" },
       "last-365": { type: "boolean" },
       year: { type: "string" },
@@ -149,39 +120,68 @@ async function main(): Promise<void> {
     throw new Error("Use only one date mode: --ytd, --last-365, or --year.");
   }
 
+  if (values.dashboard && (values.format || values.output)) {
+    throw new Error("--dashboard does not support --format or --output.");
+  }
+
   const provider = parseProvider(values.provider);
   const format = inferFormat(values.format, values.output);
-  const selectedYear = values.year
-    ? Number.parseInt(values.year, 10)
-    : undefined;
+  const selectedYear = parseYear(values.year);
   const isLast365 = values["last-365"] === true;
-  const { start, end } = selectedYear
-    ? getCalendarYearDates(selectedYear)
-    : isLast365
-      ? getLast365DaysDates()
-      : getYtdDates();
-  const defaultLabel = getDefaultLabel(selectedYear, isLast365);
+  const { start, end, label } = resolveDateSelection(selectedYear, isLast365);
+
+  if (values.dashboard) {
+    const refreshMinutes = parseRefreshMinutes(values["refresh-minutes"]);
+    const refreshIntervalMs = Math.round(refreshMinutes * 60_000);
+    const handle = await startDashboardServer({
+      end,
+      host: values.host?.trim() || "127.0.0.1",
+      port: parsePort(values.port),
+      provider,
+      refreshIntervalMs,
+      start,
+      label,
+      ...(values["claude-config-dir"]
+        ? { claudeConfigDir: values["claude-config-dir"] }
+        : {}),
+      ...(values["codex-home"]
+        ? { codexHome: values["codex-home"] }
+        : {}),
+    });
+    const upgradeNotice = await getUpgradeNotice();
+
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          mode: "dashboard",
+          provider,
+          refreshMinutes,
+          start: start.toISOString(),
+          end: end.toISOString(),
+          url: handle.url,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    if (upgradeNotice) {
+      process.stderr.write(`${upgradeNotice}\n`);
+    }
+
+    return;
+  }
+
+  const defaultLabel = label;
   const defaultOutput = getDefaultOutputName(format, defaultLabel, provider);
   const outputPath = resolve(values.output ?? defaultOutput);
-  const summary = await loadRequestedSummary(
+  const summary = await loadRequestedSummaryOrThrow(
     provider,
     start,
     end,
     values["codex-home"],
     values["claude-config-dir"],
   );
-
-  if (summary === null) {
-    if (provider === "all") {
-      throw new Error(
-        "No Codex or Claude Code usage data was found in the requested window.",
-      );
-    }
-
-    throw new Error(
-      `No ${provider === "claude" ? "Claude Code" : "Codex"} usage data was found in the requested window.`,
-    );
-  }
 
   await ensureParentDirectory(outputPath);
   const spend = format === "json" ? null : await estimateUsageSpend(summary);

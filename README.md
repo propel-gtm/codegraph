@@ -3,6 +3,7 @@
 `codegraph` is a Bun + TypeScript CLI package for local AI coding usage heatmaps.
 
 By default, `codegraph` writes a PNG heatmap.
+For a persistent local view, `codegraph --dashboard` starts a live dashboard that refreshes every 5 minutes.
 
 ## Supported providers
 
@@ -53,6 +54,18 @@ Generate the default YTD PNG using all available providers:
 
 ```bash
 codegraph
+```
+
+Start the persistent YTD dashboard on `http://127.0.0.1:4269`:
+
+```bash
+codegraph --dashboard
+```
+
+Start the dashboard with a custom refresh cadence:
+
+```bash
+codegraph --dashboard --refresh-minutes 10
 ```
 
 Generate a merged last-365 PNG:
@@ -107,6 +120,7 @@ codegraph --help
 
 ```bash
 codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--format svg|png|json] [--output PATH]
+codegraph --dashboard [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--host HOST] [--port PORT] [--refresh-minutes MINUTES]
 ```
 
 Options:
@@ -119,6 +133,14 @@ Options:
   Render a specific calendar year.
 - `--provider codex|claude|all`
   Choose a single provider or merge both. Default is `all`.
+- `--dashboard`
+  Start a persistent local dashboard server instead of writing a file.
+- `--host HOST`
+  Dashboard bind host. Default is `127.0.0.1`.
+- `--port PORT`
+  Dashboard bind port. Default is `4269`.
+- `--refresh-minutes MINUTES`
+  Browser refresh cadence for dashboard mode. Default is `5`.
 - `--format svg|png|json`
   Output SVG, PNG, or JSON. Default is inferred from `--output`, otherwise `png`.
 - `--output PATH`
@@ -134,8 +156,20 @@ Rules:
 
 - If no date mode is passed, `codegraph` defaults to YTD.
 - `--ytd`, `--last-365`, and `--year` are mutually exclusive.
+- `--dashboard` cannot be combined with `--format` or `--output`.
 - If `--year` is the current year, the end date is clamped to today instead of rendering future empty days.
 - Default output names depend on both the date window and provider.
+
+## Dashboard mode
+
+`codegraph --dashboard` starts a small local HTTP server and keeps running until you stop it.
+
+Behavior:
+
+- the browser view auto-refreshes every 5 minutes by default
+- the server also refreshes its in-memory snapshot on the same cadence
+- `Refresh now` forces an immediate reload without restarting the process
+- `/api/dashboard` exposes the current dashboard state as JSON for local integrations
 
 ## Default output files
 
