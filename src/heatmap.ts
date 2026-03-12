@@ -1,3 +1,5 @@
+import { Resvg } from "@resvg/resvg-js";
+import type { UsageSpendEstimate } from "./pricing.ts";
 import type {
   DailyUsage,
   ModelUsage,
@@ -32,6 +34,10 @@ interface CellDay {
   breakdown: ModelUsage[];
 }
 
+interface HeatmapRenderOptions {
+  spend?: UsageSpendEstimate | null;
+}
+
 const TITLE_FONT_STACK =
   "'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
 const UI_FONT_STACK =
@@ -40,15 +46,15 @@ const MONO_FONT_STACK =
   "'IBM Plex Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace";
 
 const THEME: Theme = {
-  backgroundStart: "#fcfbf7",
-  backgroundEnd: "#f0f6f2",
-  panel: "#f7fbf8",
-  border: "#d8e5de",
-  text: "#12201a",
-  muted: "#61726b",
-  accent: "#1f7a59",
-  empty: "#e4ede7",
-  palette: ["#cfe4d7", "#a7ceb7", "#69aa87", "#2e775a", "#0f4736"],
+  backgroundStart: "#fbfcf7",
+  backgroundEnd: "#eff5ee",
+  panel: "#f7faf8",
+  border: "#d7e2dc",
+  text: "#122019",
+  muted: "#5f6f67",
+  accent: "#2a8c62",
+  empty: "#dde8e1",
+  palette: ["#c9ddd2", "#9fcab5", "#69af8b", "#33815f", "#0f5c43"],
 };
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -128,10 +134,23 @@ function metricBlock(
   width: number,
   height: number,
 ): string {
+  const labelLines = label
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const isMultilineLabel = labelLines.length > 1;
+  const labelMarkup = labelLines
+    .map((line, index) => {
+      const lineY = y + 24 + index * 12;
+
+      return `<text x="${x + 16}" y="${lineY}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="${isMultilineLabel ? 9 : 10}" font-weight="700" letter-spacing="${isMultilineLabel ? 1 : 1.2}">${escapeXml(line.toUpperCase())}</text>`;
+    })
+    .join("");
+
   return `
-    <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="14" fill="#ffffff" opacity="0.55" />
-    <text x="${x + 16}" y="${y + 22}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="10" font-weight="700" letter-spacing="1.1">${escapeXml(label.toUpperCase())}</text>
-    <text x="${x + 16}" y="${y + 50}" fill="${theme.text}" font-family="${TITLE_FONT_STACK}" font-size="24" font-weight="700">
+    <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="14" fill="${theme.panel}" stroke="${theme.border}" />
+    ${labelMarkup}
+    <text x="${x + 16}" y="${y + (isMultilineLabel ? 59 : 55)}" fill="${theme.text}" font-family="${TITLE_FONT_STACK}" font-size="${isMultilineLabel ? 23 : 25}" font-weight="700">
       ${escapeXml(value)}
     </text>
   `;
@@ -185,7 +204,39 @@ function legend(x: number, y: number, theme: Theme): string {
   `;
 }
 
-export function renderHeatmapSvg(summary: UsageSummary): string {
+function formatUsd(value: number): string {
+  if (!Number.isFinite(value)) {
+    return "n/a";
+  }
+
+  if (value >= 100) {
+    return new Intl.NumberFormat("en-US", {
+      currency: "USD",
+      maximumFractionDigits: 0,
+      style: "currency",
+    }).format(value);
+  }
+
+  if (value >= 10) {
+    return new Intl.NumberFormat("en-US", {
+      currency: "USD",
+      maximumFractionDigits: 1,
+      style: "currency",
+    }).format(value);
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    currency: "USD",
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    style: "currency",
+  }).format(value);
+}
+
+export function renderHeatmapSvg(
+  summary: UsageSummary,
+  options: HeatmapRenderOptions = {},
+): string {
   const theme = THEME;
   const dayMap = new Map<string, DailyUsage>(
     summary.daily.map((day) => [day.date, day]),
@@ -194,30 +245,42 @@ export function renderHeatmapSvg(summary: UsageSummary): string {
   const maxDailyTotal = Math.max(...summary.daily.map((day) => day.total), 0);
   const cellSize = 11;
   const gap = 4;
-  const left = 56;
-  const top = 106;
+  const left = 62;
+  const top = 154;
   const gridWidth = weeks.length * (cellSize + gap) - gap;
   const gridHeight = 7 * (cellSize + gap) - gap;
-  const panelX = left + gridWidth + 40;
-  const panelWidth = 428;
-  const width = panelX + panelWidth + 32;
+  const width = Math.max(940, left + gridWidth + 32);
   const height = 438;
+  const padding = 32;
   const mostUsedModelName = summary.insights.mostUsedModel
     ? truncate(summary.insights.mostUsedModel.name, 18)
     : "n/a";
   const mostUsedModelTotal = summary.insights.mostUsedModel
     ? compactNumber(summary.insights.mostUsedModel.tokens.total)
     : "";
-  const recentModelName = summary.insights.recentMostUsedModel
+  const latestModelName = summary.insights.recentMostUsedModel
     ? truncate(summary.insights.recentMostUsedModel.name, 18)
+    : summary.insights.latestModel
+      ? truncate(summary.insights.latestModel.name, 18)
     : "n/a";
-  const recentModelTotal = summary.insights.recentMostUsedModel
+  const latestModelTotal = summary.insights.recentMostUsedModel
     ? compactNumber(summary.insights.recentMostUsedModel.tokens.total)
     : "";
-  const metricCardWidth = 190;
-  const metricCardHeight = 68;
-  const cardGap = 16;
-  const insightColumnGap = 214;
+  const spendValue =
+    options.spend && options.spend.pricedModels > 0
+      ? formatUsd(options.spend.totalUsd)
+      : "n/a";
+  const metricCardWidth = 152;
+  const metricCardHeight = 74;
+  const metricGap = 14;
+  const metricCardCount = 4;
+  const metricRowX =
+    width - padding - (metricCardWidth * metricCardCount + metricGap * (metricCardCount - 1));
+  const metricRowY = 36;
+  const legendY = top + gridHeight + 34;
+  const dividerY = legendY + 38;
+  const insightY = dividerY + 28;
+  const insightColumnWidth = (width - padding * 2) / 4;
 
   const monthText = monthLabels
     .map((label, index) => {
@@ -225,20 +288,21 @@ export function renderHeatmapSvg(summary: UsageSummary): string {
         return "";
       }
 
-      const x = left + index * (cellSize + gap);
+      const x = left + index * (cellSize + gap) + 1;
+      const monthMonogram = label.slice(0, 1).toUpperCase();
 
-      return `<text x="${x}" y="${top - 18}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="11" font-weight="600">${escapeXml(label)}</text>`;
+      return `<text x="${x}" y="${top - 18}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="13" font-weight="600">${escapeXml(monthMonogram)}</text>`;
     })
     .join("");
 
   const dayLabels = DAY_LABELS.map((label, index) => {
-    if (index % 2 === 1) {
+    if (![0, 2, 4].includes(index)) {
       return "";
     }
 
-      const y = top + index * (cellSize + gap) + cellSize - 1;
+    const y = top + index * (cellSize + gap) + cellSize - 1;
 
-    return `<text x="16" y="${y}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="11" font-weight="600">${escapeXml(label)}</text>`;
+    return `<text x="24" y="${y}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="13" font-weight="600">${escapeXml(label.slice(0, 1).toUpperCase())}</text>`;
   }).join("");
 
   const cells = weeks
@@ -276,23 +340,30 @@ export function renderHeatmapSvg(summary: UsageSummary): string {
     </linearGradient>
   </defs>
   <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="22" fill="url(#codegraph-bg)" stroke="${theme.border}" />
-  <rect x="1" y="1" width="${width - 2}" height="6" rx="22" fill="${theme.accent}" opacity="0.9" />
-  <text x="32" y="48" fill="${theme.text}" font-family="${TITLE_FONT_STACK}" font-size="28" font-weight="800">codegraph</text>
-  <text x="32" y="72" fill="${theme.muted}" font-family="${MONO_FONT_STACK}" font-size="11">Codex usage from ${escapeXml(summary.start)} to ${escapeXml(summary.end)}</text>
-  <rect x="${panelX - 18}" y="76" width="${panelWidth + 12}" height="332" rx="20" fill="${theme.panel}" stroke="${theme.border}" />
+  <text x="${padding}" y="48" fill="${theme.text}" font-family="${TITLE_FONT_STACK}" font-size="30" font-weight="800">codegraph</text>
+  <text x="${padding}" y="72" fill="${theme.muted}" font-family="${MONO_FONT_STACK}" font-size="12">${escapeXml(summary.start)} to ${escapeXml(summary.end)}</text>
+  ${metricBlock("Theoretical\nToken Spend", spendValue, metricRowX, metricRowY, theme, metricCardWidth, metricCardHeight)}
+  ${metricBlock("Last 30 days", compactNumber(summary.metrics.last30Days), metricRowX + (metricCardWidth + metricGap), metricRowY, theme, metricCardWidth, metricCardHeight)}
+  ${metricBlock("Input tokens", compactNumber(summary.metrics.input), metricRowX + (metricCardWidth + metricGap) * 2, metricRowY, theme, metricCardWidth, metricCardHeight)}
+  ${metricBlock("Output tokens", compactNumber(summary.metrics.output), metricRowX + (metricCardWidth + metricGap) * 3, metricRowY, theme, metricCardWidth, metricCardHeight)}
   ${monthText}
   ${dayLabels}
   ${cells}
-  ${legend(left, top + gridHeight + 30, theme)}
-  ${metricBlock("Last 30 days", compactNumber(summary.metrics.last30Days), panelX, 102, theme, metricCardWidth, metricCardHeight)}
-  ${metricBlock("Input tokens", compactNumber(summary.metrics.input), panelX + metricCardWidth + cardGap, 102, theme, metricCardWidth, metricCardHeight)}
-  ${metricBlock("Output tokens", compactNumber(summary.metrics.output), panelX, 184, theme, metricCardWidth, metricCardHeight)}
-  ${metricBlock("Total tokens", compactNumber(summary.metrics.total), panelX + metricCardWidth + cardGap, 184, theme, metricCardWidth, metricCardHeight)}
-  <line x1="${panelX}" y1="274" x2="${panelX + panelWidth - 20}" y2="274" stroke="${theme.border}" />
-  ${modelInsightBlock("Most used model", mostUsedModelName, mostUsedModelTotal, panelX, 304, theme)}
-  ${modelInsightBlock("Recent model", recentModelName, recentModelTotal, panelX + insightColumnGap, 304, theme)}
-  <line x1="${panelX}" y1="346" x2="${panelX + panelWidth - 20}" y2="346" stroke="${theme.border}" />
-  ${insightBlock("Longest streak", `${summary.insights.streaks.longest}d`, panelX, 374, theme)}
-  ${insightBlock("Current streak", `${summary.insights.streaks.current}d`, panelX + insightColumnGap, 374, theme)}
+  ${legend(left, legendY, theme)}
+  <line x1="${padding}" y1="${dividerY}" x2="${width - padding}" y2="${dividerY}" stroke="${theme.border}" />
+  ${modelInsightBlock("Most used model", mostUsedModelName, mostUsedModelTotal, padding, insightY, theme)}
+  ${modelInsightBlock("Latest model", latestModelName, latestModelTotal, padding + insightColumnWidth, insightY, theme)}
+  ${insightBlock("Longest streak", `${summary.insights.streaks.longest}d`, padding + insightColumnWidth * 2, insightY, theme)}
+  ${insightBlock("Current streak", `${summary.insights.streaks.current}d`, padding + insightColumnWidth * 3, insightY, theme)}
 </svg>`.trim();
+}
+
+export function renderHeatmapPng(
+  summary: UsageSummary,
+  options: HeatmapRenderOptions = {},
+): Uint8Array {
+  const svg = renderHeatmapSvg(summary, options);
+  const renderer = new Resvg(svg);
+
+  return renderer.render().asPng();
 }

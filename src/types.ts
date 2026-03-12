@@ -1,4 +1,4 @@
-export type OutputFormat = "svg" | "json";
+export type OutputFormat = "svg" | "png" | "json";
 export type ProviderId = "codex" | "claude" | "all";
 
 export interface TokenTotals {
@@ -14,6 +14,11 @@ export interface TokenTotals {
 export interface ModelUsage {
   name: string;
   tokens: TokenTotals;
+}
+
+export interface LatestModelInsight {
+  name: string;
+  lastUsedAt: string;
 }
 
 export interface DailyUsage extends TokenTotals {
@@ -35,6 +40,7 @@ export interface UsageInsights {
   };
   mostUsedModel: ModelUsage | null;
   recentMostUsedModel: ModelUsage | null;
+  latestModel: LatestModelInsight | null;
 }
 
 export interface ParserStats {

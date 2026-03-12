@@ -8,6 +8,8 @@ function buildSummary(
   title: string,
   total: number,
   modelName: string,
+  latestModelName: string,
+  latestModelAt: string,
   filesScanned: number,
 ): UsageSummary {
   return {
@@ -59,13 +61,17 @@ function buildSummary(
         },
       },
       recentMostUsedModel: {
-        name: modelName,
+        name: latestModelName,
         tokens: {
           input: total,
           output: 0,
           cache: { input: 0, output: 0 },
           total,
         },
+      },
+      latestModel: {
+        name: latestModelName,
+        lastUsedAt: latestModelAt,
       },
       streaks: {
         longest: 1,
@@ -85,8 +91,24 @@ function buildSummary(
 }
 
 test("mergeUsageSummaries combines providers into one unified summary", () => {
-  const codex = buildSummary("codex", "Codex", 120, "gpt-5-codex", 2);
-  const claude = buildSummary("claude", "Claude Code", 80, "claude-sonnet-4-5", 3);
+  const codex = buildSummary(
+    "codex",
+    "Codex",
+    120,
+    "gpt-5-codex",
+    "gpt-5.4",
+    "2026-03-01T10:00:00.000Z",
+    2,
+  );
+  const claude = buildSummary(
+    "claude",
+    "Claude Code",
+    80,
+    "claude-sonnet-4-5",
+    "claude-sonnet-4-5",
+    "2026-03-02T12:00:00.000Z",
+    3,
+  );
   const merged = mergeUsageSummaries(
     [codex, claude],
     new Date("2026-03-01T00:00:00.000Z"),
@@ -101,5 +123,7 @@ test("mergeUsageSummaries combines providers into one unified summary", () => {
   assert.equal(merged.stats.filesScanned, 5);
   assert.equal(merged.stats.sourcePaths.length, 2);
   assert.equal(merged.insights.mostUsedModel?.name, "gpt-5-codex");
+  assert.equal(merged.insights.recentMostUsedModel?.name, "claude-sonnet-4-5");
+  assert.equal(merged.insights.latestModel?.name, "claude-sonnet-4-5");
   assert.equal(merged.daily[0]?.breakdown.length, 2);
 });

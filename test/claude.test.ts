@@ -46,8 +46,8 @@ test("loadClaudeUsage aggregates assistant message usage from Claude Code sessio
         message: {
           model: "claude-opus-4-1",
           usage: {
-            input_tokens: 0,
-            output_tokens: 0,
+            input_tokens: 3,
+            output_tokens: 2,
             cache_read_input_tokens: 0,
             cache_creation_input_tokens: 0,
           },
@@ -67,13 +67,15 @@ test("loadClaudeUsage aggregates assistant message usage from Claude Code sessio
     assert.ok(summary);
     assert.equal(summary.provider.id, "claude");
     assert.equal(summary.provider.title, "Claude Code");
-    assert.equal(summary.metrics.total, 250);
-    assert.equal(summary.metrics.input, 170);
-    assert.equal(summary.metrics.output, 80);
+    assert.equal(summary.metrics.total, 255);
+    assert.equal(summary.metrics.input, 173);
+    assert.equal(summary.metrics.output, 82);
     assert.equal(summary.insights.mostUsedModel?.name, "claude-sonnet-4-5");
     assert.equal(summary.insights.mostUsedModel?.tokens.total, 250);
+    assert.equal(summary.insights.recentMostUsedModel?.name, "claude-opus-4-1");
+    assert.equal(summary.insights.latestModel?.name, "claude-opus-4-1");
     assert.equal(summary.stats.filesScanned, 1);
-    assert.equal(summary.stats.eventsConsumed, 2);
+    assert.equal(summary.stats.eventsConsumed, 3);
     assert.deepEqual(summary.stats.sourcePaths, [join(root, "projects")]);
   } finally {
     await rm(root, { recursive: true, force: true });

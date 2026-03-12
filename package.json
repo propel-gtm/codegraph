@@ -1,6 +1,6 @@
 {
   "name": "@propel-code/codegraph",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generate a local AI coding usage heatmap from Codex and Claude Code session data.",
   "type": "module",
   "packageManager": "bun@1.3.9",
@@ -31,7 +31,8 @@
     "cli",
     "heatmap",
     "usage",
-    "svg"
+    "svg",
+    "png"
   ],
   "license": "Apache-2.0",
   "repository": {
@@ -48,5 +49,8 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2"
   }
 }

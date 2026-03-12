@@ -1,5 +1,6 @@
 import type {
   DailyUsage,
+  LatestModelInsight,
   ModelUsage,
   ParserStats,
   ProviderId,
@@ -88,6 +89,52 @@ function topModelUsage(
   };
 }
 
+function modelUsageForName(
+  modelTotals: Map<string, TokenTotals>,
+  modelName: string,
+): ModelUsage | null {
+  const tokens = modelTotals.get(modelName);
+
+  if (!tokens) {
+    return null;
+  }
+
+  return {
+    name: modelName,
+    tokens: cloneTokens(tokens),
+  };
+}
+
+function latestModelTimestamp(value: LatestModelInsight | null | undefined): number {
+  if (!value) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const timestamp = Date.parse(value.lastUsedAt);
+
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+}
+
+export function pickLatestModel(
+  ...values: Array<LatestModelInsight | null | undefined>
+): LatestModelInsight | null {
+  let latest: LatestModelInsight | null = null;
+  let latestTimestamp = Number.NEGATIVE_INFINITY;
+
+  for (const value of values) {
+    const timestamp = latestModelTimestamp(value);
+
+    if (timestamp < latestTimestamp) {
+      continue;
+    }
+
+    latest = value ?? null;
+    latestTimestamp = timestamp;
+  }
+
+  return latest;
+}
+
 function computeStreaks(
   daily: DailyUsage[],
 ): UsageSummary["insights"]["streaks"] {
@@ -150,6 +197,7 @@ export function summarizeUsage(
   daily: DailyUsage[],
   modelTotals: Map<string, TokenTotals>,
   recentModelTotals: Map<string, TokenTotals>,
+  latestModel: LatestModelInsight | null,
   start: Date,
   end: Date,
   stats: ParserStats,
@@ -185,7 +233,10 @@ export function summarizeUsage(
     insights: {
       streaks: computeStreaks(daily),
       mostUsedModel: topModelUsage(modelTotals),
-      recentMostUsedModel: topModelUsage(recentModelTotals),
+      recentMostUsedModel: latestModel
+        ? modelUsageForName(modelTotals, latestModel.name)
+        : topModelUsage(recentModelTotals),
+      latestModel,
     },
     stats,
   };
@@ -242,6 +293,10 @@ export function mergeUsageSummaries(
   const recentModelTotals = new Map<string, TokenTotals>();
   const recentStartKey = formatLocalDate(getRecentWindowStart(end));
 
+  const latestModel = pickLatestModel(
+    ...summaries.map((summary) => summary.insights.latestModel),
+  );
+
   for (const summary of summaries) {
     for (const day of summary.daily) {
       for (const entry of day.breakdown) {
@@ -261,6 +316,7 @@ export function mergeUsageSummaries(
     finalizeDailyRows(dailyByDate, start, end),
     modelTotals,
     recentModelTotals,
+    latestModel,
     start,
     end,
     mergeStats(summaries),

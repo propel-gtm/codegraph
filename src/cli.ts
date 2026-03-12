@@ -3,7 +3,8 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { loadClaudeUsage } from "./claude.ts";
 import { loadCodexUsage } from "./codex.ts";
-import { renderHeatmapSvg } from "./heatmap.ts";
+import { renderHeatmapPng, renderHeatmapSvg } from "./heatmap.ts";
+import { estimateUsageSpend } from "./pricing.ts";
 import { mergeUsageSummaries } from "./summary.ts";
 import type { ProviderId, UsageSummary } from "./types.ts";
 import { getUpgradeNotice } from "./update.ts";
@@ -15,7 +16,7 @@ import {
   inferFormat,
 } from "./utils.ts";
 
-const JSON_EXPORT_VERSION = "0.1.0";
+const JSON_EXPORT_VERSION = "0.2.0";
 const PROVIDERS: ProviderId[] = ["codex", "claude", "all"];
 
 const HELP_TEXT = `codegraph
@@ -23,10 +24,10 @@ const HELP_TEXT = `codegraph
 Generate a local AI coding usage heatmap from Codex and Claude Code session files.
 
 Usage:
-  codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--format svg|json] [--output ./codegraph-ytd.svg]
+  codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--format svg|png|json] [--output ./codegraph-ytd.png]
 
 Options:
-  --format, -f              Output format: svg or json
+  --format, -f              Output format: svg, png, or json
   --output, -o              Output path
   --provider                Provider selection: codex, claude, or all
   --ytd                     Render from January 1 of the current year through today
@@ -60,12 +61,17 @@ function getDefaultLabel(year?: number, isLast365 = false): string {
 }
 
 function getDefaultOutputName(
-  format: "svg" | "json",
+  format: "svg" | "png" | "json",
   label: string,
   provider: ProviderId,
 ): string {
   const providerSuffix = provider === "all" ? "" : `-${provider}`;
-  const extension = format === "json" ? "json" : "svg";
+  const extension =
+    format === "json"
+      ? "json"
+      : format === "png"
+        ? "png"
+        : "svg";
 
   return `./codegraph-${label}${providerSuffix}.${extension}`;
 }
@@ -178,6 +184,7 @@ async function main(): Promise<void> {
   }
 
   await ensureParentDirectory(outputPath);
+  const spend = format === "json" ? null : await estimateUsageSpend(summary);
 
   if (format === "json") {
     await writeFile(
@@ -193,8 +200,12 @@ async function main(): Promise<void> {
       )}\n`,
       "utf8",
     );
+  } else if (format === "png") {
+    const png = renderHeatmapPng(summary, { spend });
+
+    await writeFile(outputPath, png);
   } else {
-    const svg = renderHeatmapSvg(summary);
+    const svg = renderHeatmapSvg(summary, { spend });
 
     await writeFile(outputPath, `${svg}\n`, "utf8");
   }

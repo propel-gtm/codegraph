@@ -1,4 +1,5 @@
 import { mkdir, readdir } from "node:fs/promises";
+import { availableParallelism } from "node:os";
 import { dirname, join } from "node:path";
 import type { OutputFormat, TokenTotals } from "./types.ts";
 
@@ -158,18 +159,26 @@ export function inferFormat(
   outputArg?: string,
 ): OutputFormat {
   if (formatArg) {
-    if (formatArg !== "svg" && formatArg !== "json") {
-      throw new Error(`Unsupported format "${formatArg}". Use svg or json.`);
+    if (formatArg !== "svg" && formatArg !== "png" && formatArg !== "json") {
+      throw new Error(`Unsupported format "${formatArg}". Use svg, png, or json.`);
     }
 
     return formatArg;
+  }
+
+  if (outputArg?.toLowerCase().endsWith(".png")) {
+    return "png";
+  }
+
+  if (outputArg?.toLowerCase().endsWith(".svg")) {
+    return "svg";
   }
 
   if (outputArg?.toLowerCase().endsWith(".json")) {
     return "json";
   }
 
-  return "svg";
+  return "png";
 }
 
 export function getYtdDates(): { start: Date; end: Date } {
@@ -263,6 +272,46 @@ export async function listFilesRecursive(
   }
 
   return files.sort((left, right) => left.localeCompare(right));
+}
+
+export function getParserConcurrency(totalFiles: number): number {
+  const override = Number.parseInt(
+    process.env.CODEGRAPH_PARSE_CONCURRENCY ?? "",
+    10,
+  );
+
+  if (Number.isInteger(override) && override > 0) {
+    return Math.min(totalFiles, override);
+  }
+
+  return Math.min(totalFiles, Math.max(1, Math.min(8, availableParallelism())));
+}
+
+export async function mapWithConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  worker: (value: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (values.length === 0) {
+    return [];
+  }
+
+  const limit = Math.max(1, Math.min(values.length, Math.floor(concurrency)));
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+
+  async function runWorker(): Promise<void> {
+    while (nextIndex < values.length) {
+      const index = nextIndex;
+
+      nextIndex += 1;
+      results[index] = await worker(values[index] as T, index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: limit }, () => runWorker()));
+
+  return results;
 }
 
 export async function ensureParentDirectory(filePath: string): Promise<void> {

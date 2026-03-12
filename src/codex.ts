@@ -5,6 +5,7 @@ import readline from "node:readline";
 import type {
   CodexRawUsage,
   CodexRecord,
+  LatestModelInsight,
   LoadCodexUsageOptions,
   ParserStats,
   TokenTotals,
@@ -15,12 +16,15 @@ import {
   addModelUsage,
   type DailyAggregateEntry,
   finalizeDailyRows,
+  pickLatestModel,
   summarizeUsage,
 } from "./summary.ts";
 import {
   formatLocalDate,
+  getParserConcurrency,
   getRecentWindowStart,
   listFilesRecursive,
+  mapWithConcurrency,
   normalizeModelName,
 } from "./utils.ts";
 
@@ -38,7 +42,19 @@ interface ProcessContext {
   dailyByDate: Map<string, DailyAggregateEntry>;
   modelTotals: Map<string, TokenTotals>;
   recentModelTotals: Map<string, TokenTotals>;
+  latestModel: LatestModelInsight | null;
   stats: ParserStats;
+}
+
+interface FileProcessResult {
+  dailyByDate: Map<string, DailyAggregateEntry>;
+  modelTotals: Map<string, TokenTotals>;
+  recentModelTotals: Map<string, TokenTotals>;
+  latestModel: LatestModelInsight | null;
+  stats: Pick<
+    ParserStats,
+    "filesFailed" | "linesScanned" | "badLines" | "eventsConsumed"
+  >;
 }
 
 function normalizeUsage(
@@ -113,10 +129,22 @@ function extractRecordModel(record: CodexRecord | null | undefined): string {
 
 async function processSessionFile(
   filePath: string,
-  context: ProcessContext,
-): Promise<void> {
+  context: Pick<ProcessContext, "start" | "end" | "recentStart">,
+): Promise<FileProcessResult> {
   let currentModel = "unknown";
   let previousUsage: NormalizedUsage | null = null;
+  const result: FileProcessResult = {
+    dailyByDate: new Map<string, DailyAggregateEntry>(),
+    modelTotals: new Map<string, TokenTotals>(),
+    recentModelTotals: new Map<string, TokenTotals>(),
+    latestModel: null,
+    stats: {
+      filesFailed: 0,
+      linesScanned: 0,
+      badLines: 0,
+      eventsConsumed: 0,
+    },
+  };
 
   try {
     const stream = createReadStream(filePath, { encoding: "utf8" });
@@ -126,18 +154,25 @@ async function processSessionFile(
     });
 
     for await (const line of lineReader) {
-      if (!line.trim()) {
+      if (line.length === 0) {
         continue;
       }
 
-      context.stats.linesScanned += 1;
+      result.stats.linesScanned += 1;
+
+      if (
+        !line.includes("\"turn_context\"") &&
+        !line.includes("\"token_count\"")
+      ) {
+        continue;
+      }
 
       let record: CodexRecord;
 
       try {
         record = JSON.parse(line) as CodexRecord;
       } catch {
-        context.stats.badLines += 1;
+        result.stats.badLines += 1;
         continue;
       }
 
@@ -187,18 +222,54 @@ async function processSessionFile(
       const tokens = usageToTokens(deltaUsage);
       const dateKey = formatLocalDate(timestamp);
 
-      addDailyUsage(context.dailyByDate, dateKey, modelName, tokens);
-      addModelUsage(context.modelTotals, modelName, tokens);
+      addDailyUsage(result.dailyByDate, dateKey, modelName, tokens);
+      addModelUsage(result.modelTotals, modelName, tokens);
+      result.latestModel = pickLatestModel(
+        result.latestModel,
+        modelName === "unknown"
+          ? null
+          : {
+              name: modelName,
+              lastUsedAt: timestamp.toISOString(),
+            },
+      );
 
       if (timestamp >= context.recentStart) {
-        addModelUsage(context.recentModelTotals, modelName, tokens);
+        addModelUsage(result.recentModelTotals, modelName, tokens);
       }
 
-      context.stats.eventsConsumed += 1;
+      result.stats.eventsConsumed += 1;
     }
   } catch {
-    context.stats.filesFailed += 1;
+    result.stats.filesFailed += 1;
   }
+
+  return result;
+}
+
+function mergeFileResult(
+  context: ProcessContext,
+  result: FileProcessResult,
+): void {
+  for (const [dateKey, entry] of result.dailyByDate) {
+    for (const [modelName, tokens] of entry.models) {
+      addDailyUsage(context.dailyByDate, dateKey, modelName, tokens);
+    }
+  }
+
+  for (const [modelName, tokens] of result.modelTotals) {
+    addModelUsage(context.modelTotals, modelName, tokens);
+  }
+
+  for (const [modelName, tokens] of result.recentModelTotals) {
+    addModelUsage(context.recentModelTotals, modelName, tokens);
+  }
+
+  context.latestModel = pickLatestModel(context.latestModel, result.latestModel);
+  context.stats.filesFailed += result.stats.filesFailed;
+  context.stats.linesScanned += result.stats.linesScanned;
+  context.stats.badLines += result.stats.badLines;
+  context.stats.eventsConsumed += result.stats.eventsConsumed;
 }
 
 export async function loadCodexUsage(
@@ -220,6 +291,7 @@ export async function loadCodexUsage(
     dailyByDate: new Map<string, DailyAggregateEntry>(),
     modelTotals: new Map<string, TokenTotals>(),
     recentModelTotals: new Map<string, TokenTotals>(),
+    latestModel: null,
     stats: {
       sourceLabel: "Codex sessions",
       sourcePaths: [sessionRoot],
@@ -231,8 +303,14 @@ export async function loadCodexUsage(
     },
   };
 
-  for (const filePath of files) {
-    await processSessionFile(filePath, context);
+  const results = await mapWithConcurrency(
+    files,
+    getParserConcurrency(files.length),
+    (filePath) => processSessionFile(filePath, context),
+  );
+
+  for (const result of results) {
+    mergeFileResult(context, result);
   }
 
   const daily = finalizeDailyRows(context.dailyByDate, start, end);
@@ -247,6 +325,7 @@ export async function loadCodexUsage(
     daily,
     context.modelTotals,
     context.recentModelTotals,
+    context.latestModel,
     start,
     end,
     context.stats,

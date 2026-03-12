@@ -1,6 +1,8 @@
 # codegraph
 
-`codegraph` is a Bun + TypeScript CLI that turns local AI coding session history into a contribution-style usage graph.
+`codegraph` is a Bun + TypeScript CLI package for local AI coding usage heatmaps.
+
+By default, `codegraph` writes a PNG heatmap.
 
 ## Supported providers
 
@@ -46,13 +48,13 @@ bun install
 
 ## Quickstart
 
-Generate the default YTD SVG using all available providers:
+Generate the default YTD PNG using all available providers:
 
 ```bash
 codegraph
 ```
 
-Generate a merged last-365 SVG:
+Generate a merged last-365 PNG:
 
 ```bash
 codegraph --last-365
@@ -76,16 +78,22 @@ Generate Claude-only output:
 codegraph --provider claude
 ```
 
-Generate JSON instead of SVG:
+Generate JSON instead of the default PNG:
 
 ```bash
 codegraph --format json
 ```
 
+Generate SVG instead of the default PNG:
+
+```bash
+codegraph --format svg
+```
+
 Write to a custom file:
 
 ```bash
-codegraph --provider all --year 2025 --output ./out/codegraph-2025.svg
+codegraph --provider all --year 2025 --output ./out/codegraph-2025.png
 ```
 
 Show help:
@@ -97,7 +105,7 @@ codegraph --help
 ## CLI reference
 
 ```bash
-codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--format svg|json] [--output PATH]
+codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--format svg|png|json] [--output PATH]
 ```
 
 Options:
@@ -110,8 +118,8 @@ Options:
   Render a specific calendar year.
 - `--provider codex|claude|all`
   Choose a single provider or merge both. Default is `all`.
-- `--format svg|json`
-  Output either SVG or JSON. Default is inferred from `--output`, otherwise `svg`.
+- `--format svg|png|json`
+  Output SVG, PNG, or JSON. Default is inferred from `--output`, otherwise `png`.
 - `--output PATH`
   Override the output file location.
 - `--codex-home PATH`
@@ -132,18 +140,24 @@ Rules:
 
 Merged `all` output:
 
+- `codegraph-ytd.png`
 - `codegraph-ytd.svg`
 - `codegraph-ytd.json`
+- `codegraph-last-365.png`
 - `codegraph-last-365.svg`
 - `codegraph-last-365.json`
+- `codegraph-2025.png`
 - `codegraph-2025.svg`
 - `codegraph-2025.json`
 
 Single-provider output adds the provider suffix:
 
+- `codegraph-ytd-codex.png`
 - `codegraph-ytd-codex.svg`
+- `codegraph-ytd-claude.png`
 - `codegraph-ytd-claude.svg`
 - `codegraph-last-365-codex.json`
+- `codegraph-2025-claude.png`
 - `codegraph-2025-claude.svg`
 
 ## Data sources
@@ -209,17 +223,23 @@ When `--provider all` is used:
 - last-30-day totals are recomputed from the merged daily rows
 - parser stats are summed across providers
 
-## What the SVG shows
+## What the Heatmap Shows
 
 - Monday-first contribution-style heatmap
+- theoretical token spend using LiteLLM model pricing
 - total tokens in the last 30 days
 - cumulative input tokens
 - cumulative output tokens
-- cumulative total tokens
 - most-used model
-- recent-most-used model
+- latest model
 - longest streak
 - current streak
+
+Pricing data is resolved in this order:
+
+- bundled prices in the codebase for common Codex and Claude models
+- cached LiteLLM pricing in `~/.codegraph/litellm-pricing.json`
+- LiteLLM's published model cost map only when a model is still unknown
 
 ## JSON export shape
 
@@ -234,6 +254,15 @@ The JSON export contains:
 - `summary.metrics`
 - `summary.insights`
 - `summary.stats`
+
+`summary.insights` includes:
+
+- `mostUsedModel`
+- `recentMostUsedModel`
+  This now reflects the most recently used model, with total tokens for that model in the selected window.
+- `latestModel`
+  This retains the raw timestamped latest-model record used to derive recency.
+- `streaks`
 
 Each daily row contains:
 
@@ -270,7 +299,7 @@ Each `summary.stats` object contains:
 - `src/update.ts`
   Package version checks for published CLI installs.
 - `src/heatmap.ts`
-  SVG rendering.
+  SVG rendering and PNG export.
 - `src/utils.ts`
   Shared date, formatting, and filesystem helpers.
 - `src/types.ts`

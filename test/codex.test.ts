@@ -65,21 +65,26 @@ test("loadCodexUsage aggregates cumulative token_count events without double cou
       }),
       JSON.stringify({
         timestamp: later.toISOString(),
+        type: "turn_context",
+        payload: { model: "gpt-5.4" },
+      }),
+      JSON.stringify({
+        timestamp: later.toISOString(),
         type: "event_msg",
         payload: {
           type: "token_count",
           info: {
             total_token_usage: {
-              input_tokens: 190,
-              cached_input_tokens: 40,
-              output_tokens: 60,
-              total_tokens: 250,
-            },
-            last_token_usage: {
               input_tokens: 110,
-              cached_input_tokens: 20,
+              cached_input_tokens: 30,
               output_tokens: 40,
               total_tokens: 150,
+            },
+            last_token_usage: {
+              input_tokens: 30,
+              cached_input_tokens: 10,
+              output_tokens: 20,
+              total_tokens: 50,
             },
           },
         },
@@ -102,15 +107,17 @@ test("loadCodexUsage aggregates cumulative token_count events without double cou
     });
 
     assert.ok(summary);
-    assert.equal(summary.metrics.total, 250);
-    assert.equal(summary.metrics.input, 190);
-    assert.equal(summary.metrics.output, 60);
+    assert.equal(summary.metrics.total, 150);
+    assert.equal(summary.metrics.input, 110);
+    assert.equal(summary.metrics.output, 40);
     assert.equal(summary.insights.mostUsedModel?.name, "gpt-5-codex");
+    assert.equal(summary.insights.recentMostUsedModel?.name, "gpt-5.4");
+    assert.equal(summary.insights.latestModel?.name, "gpt-5.4");
     assert.equal(summary.stats.eventsConsumed, 2);
     assert.equal(summary.daily.filter((row) => row.total > 0).length, 1);
     assert.equal(
       summary.daily.find((row) => row.total > 0)?.breakdown[0]?.tokens.total,
-      250,
+      100,
     );
   } finally {
     await rm(root, { recursive: true, force: true });
