@@ -39,10 +39,11 @@ Use with Bun:
 bunx @propel-code/codegraph --help
 ```
 
-For local development:
+For local development, clone the repository and install dependencies:
 
 ```bash
-cd /Users/tony/dev/codegraph
+git clone https://github.com/propel-gtm/codegraph.git
+cd codegraph
 bun install
 ```
 
