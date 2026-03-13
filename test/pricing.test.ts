@@ -11,6 +11,19 @@ import {
 import type { UsageSummary } from "../src/types.ts";
 
 function buildSummary(modelNames: string[]): UsageSummary {
+  const totalInput = modelNames.length * 1_000_000;
+  const totalOutput = modelNames.length * 200_000;
+  const totalTokens = modelNames.length * 1_200_000;
+  const models = modelNames.map((name) => ({
+    name,
+    tokens: {
+      input: 1_000_000,
+      output: 200_000,
+      cache: { input: 100_000, output: 0 },
+      total: 1_200_000,
+    },
+  }));
+
   return {
     provider: { id: "all", title: "All providers" },
     start: "2026-03-01",
@@ -18,26 +31,33 @@ function buildSummary(modelNames: string[]): UsageSummary {
     daily: [
       {
         date: "2026-03-01",
-        input: modelNames.length * 1_000_000,
-        output: 200_000,
+        input: totalInput,
+        output: totalOutput,
         cache: { input: 100_000, output: 0 },
-        total: modelNames.length * 1_200_000,
-        breakdown: modelNames.map((name) => ({
-          name,
-          tokens: {
-            input: 1_000_000,
-            output: 200_000,
-            cache: { input: 100_000, output: 0 },
-            total: 1_200_000,
-          },
-        })),
+        total: totalTokens,
+        breakdown: models,
       },
     ],
+    breakdown: {
+      models,
+      providers: [
+        {
+          provider: { id: "all", title: "All providers" },
+          tokens: {
+            input: totalInput,
+            output: totalOutput,
+            cache: { input: 100_000, output: 0 },
+            total: totalTokens,
+          },
+          models,
+        },
+      ],
+    },
     metrics: {
-      last30Days: modelNames.length * 1_200_000,
-      input: modelNames.length * 1_000_000,
-      output: 200_000,
-      total: modelNames.length * 1_200_000,
+      last30Days: totalTokens,
+      input: totalInput,
+      output: totalOutput,
+      total: totalTokens,
     },
     insights: {
       mostUsedModel: null,
@@ -95,6 +115,21 @@ test("calculateUsageSpend uses LiteLLM-style pricing for OpenAI and Claude model
     output: 2_210_000,
     total: 4_310_000,
   };
+  summary.breakdown = {
+    models: summary.daily[0]?.breakdown ?? [],
+    providers: [
+      {
+        provider: { id: "all", title: "All providers" },
+        tokens: {
+          input: 2_100_000,
+          output: 2_210_000,
+          cache: { input: 200_000, output: 10_000 },
+          total: 4_310_000,
+        },
+        models: summary.daily[0]?.breakdown ?? [],
+      },
+    ],
+  };
   const pricing = {
     "gpt-5.4": {
       input_cost_per_token: 2.5 / 1_000_000,
@@ -128,6 +163,26 @@ test("estimateUsageSpend uses bundled pricing without fetching", { concurrency: 
 
   try {
     const estimate = await estimateUsageSpend(buildSummary(["gpt-5.4"]));
+
+    assert.equal(calls, 0);
+    assert.deepEqual(estimate.unpricedModels, []);
+    assert.ok(estimate.totalUsd > 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("estimateUsageSpend uses bundled pricing for Vibe models without fetching", { concurrency: false }, async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+
+  globalThis.fetch = async () => {
+    calls += 1;
+    throw new Error("fetch should not be called for bundled models");
+  };
+
+  try {
+    const estimate = await estimateUsageSpend(buildSummary(["devstral-2"]));
 
     assert.equal(calls, 0);
     assert.deepEqual(estimate.unpricedModels, []);

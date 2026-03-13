@@ -1,5 +1,5 @@
 export type OutputFormat = "svg" | "png" | "json";
-export type ProviderId = "codex" | "claude" | "all";
+export type ProviderId = "codex" | "claude" | "vibe" | "all";
 
 export interface TokenTotals {
   input: number;
@@ -14,6 +14,15 @@ export interface TokenTotals {
 export interface ModelUsage {
   name: string;
   tokens: TokenTotals;
+}
+
+export interface ProviderUsage {
+  provider: {
+    id: ProviderId;
+    title: string;
+  };
+  tokens: TokenTotals;
+  models: ModelUsage[];
 }
 
 export interface LatestModelInsight {
@@ -61,6 +70,10 @@ export interface UsageSummary {
   start: string;
   end: string;
   daily: DailyUsage[];
+  breakdown: {
+    models: ModelUsage[];
+    providers: ProviderUsage[];
+  };
   metrics: UsageMetrics;
   insights: UsageInsights;
   stats: ParserStats;
@@ -76,6 +89,12 @@ export interface LoadClaudeUsageOptions {
   start: Date;
   end: Date;
   claudeConfigDir?: string;
+}
+
+export interface LoadVibeUsageOptions {
+  start: Date;
+  end: Date;
+  vibeHome?: string;
 }
 
 export interface CodexRawUsage {

@@ -1,5 +1,6 @@
 import { loadClaudeUsage } from "./claude.ts";
 import { loadCodexUsage } from "./codex.ts";
+import { loadVibeUsage } from "./vibe.ts";
 import { mergeUsageSummaries } from "./summary.ts";
 import type { OutputFormat, ProviderId, UsageSummary } from "./types.ts";
 import {
@@ -14,7 +15,7 @@ export interface DateSelection {
   start: Date;
 }
 
-export const PROVIDERS: ProviderId[] = ["codex", "claude", "all"];
+export const PROVIDERS: ProviderId[] = ["codex", "claude", "vibe", "all"];
 
 export function parseProvider(value?: string): ProviderId {
   const normalized = value?.trim().toLowerCase() ?? "all";
@@ -23,7 +24,7 @@ export function parseProvider(value?: string): ProviderId {
     return normalized as ProviderId;
   }
 
-  throw new Error(`Unsupported provider "${value}". Use codex, claude, or all.`);
+  throw new Error(`Unsupported provider "${value}". Use codex, claude, vibe, or all.`);
 }
 
 function getDefaultLabel(year?: number, isLast365 = false): string {
@@ -65,12 +66,18 @@ export function getDefaultOutputName(
 export function createMissingUsageError(provider: ProviderId): Error {
   if (provider === "all") {
     return new Error(
-      "No Codex or Claude Code usage data was found in the requested window.",
+      "No Codex, Claude Code, or Vibe usage data was found in the requested window.",
     );
   }
 
   return new Error(
-    `No ${provider === "claude" ? "Claude Code" : "Codex"} usage data was found in the requested window.`,
+    `No ${
+      provider === "claude"
+        ? "Claude Code"
+        : provider === "vibe"
+          ? "Vibe"
+          : "Codex"
+    } usage data was found in the requested window.`,
   );
 }
 
@@ -80,6 +87,7 @@ export async function loadRequestedSummary(
   end: Date,
   codexHome?: string,
   claudeConfigDir?: string,
+  vibeHome?: string,
 ): Promise<UsageSummary | null> {
   const codexPromise =
     provider === "codex" || provider === "all"
@@ -97,9 +105,18 @@ export async function loadRequestedSummary(
             : { start, end },
         )
       : Promise.resolve(null);
-  const [codexSummary, claudeSummary] = await Promise.all([
+  const vibePromise =
+    provider === "vibe" || provider === "all"
+      ? loadVibeUsage(
+          vibeHome
+            ? { start, end, vibeHome }
+            : { start, end },
+        )
+      : Promise.resolve(null);
+  const [codexSummary, claudeSummary, vibeSummary] = await Promise.all([
     codexPromise,
     claudePromise,
+    vibePromise,
   ]);
 
   if (provider === "codex") {
@@ -110,8 +127,12 @@ export async function loadRequestedSummary(
     return claudeSummary;
   }
 
+  if (provider === "vibe") {
+    return vibeSummary;
+  }
+
   return mergeUsageSummaries(
-    [codexSummary, claudeSummary].filter(
+    [codexSummary, claudeSummary, vibeSummary].filter(
       (summary): summary is UsageSummary => summary !== null,
     ),
     start,
@@ -125,6 +146,7 @@ export async function loadRequestedSummaryOrThrow(
   end: Date,
   codexHome?: string,
   claudeConfigDir?: string,
+  vibeHome?: string,
 ): Promise<UsageSummary> {
   const summary = await loadRequestedSummary(
     provider,
@@ -132,6 +154,7 @@ export async function loadRequestedSummaryOrThrow(
     end,
     codexHome,
     claudeConfigDir,
+    vibeHome,
   );
 
   if (!summary) {

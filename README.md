@@ -11,11 +11,12 @@ For a persistent local view, `codegraph --dashboard` starts a live dashboard tha
 
 - Codex
 - Claude Code
-- merged `all` view across both providers
+- Vibe
+- merged `all` view across all detected providers
 
 By default, `codegraph` runs with `--provider all`.
 
-If both providers have data in the requested window, the result is merged.
+If multiple providers have data in the requested window, the result is merged.
 If only one provider has data, the result falls back to that provider.
 If neither provider has data, the CLI exits with an error.
 
@@ -92,6 +93,12 @@ Generate Claude-only output:
 codegraph --provider claude
 ```
 
+Generate Vibe-only output:
+
+```bash
+codegraph --provider vibe
+```
+
 Generate JSON instead of the default PNG:
 
 ```bash
@@ -119,8 +126,8 @@ codegraph --help
 ## CLI reference
 
 ```bash
-codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--format svg|png|json] [--output PATH]
-codegraph --dashboard [--ytd | --last-365 | --year YYYY] [--provider codex|claude|all] [--host HOST] [--port PORT] [--refresh-minutes MINUTES]
+codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|vibe|all] [--format svg|png|json] [--output PATH]
+codegraph --dashboard [--ytd | --last-365 | --year YYYY] [--provider codex|claude|vibe|all] [--host HOST] [--port PORT] [--refresh-minutes MINUTES]
 ```
 
 Options:
@@ -131,8 +138,8 @@ Options:
   Render a rolling 365-day window through today.
 - `--year YYYY`
   Render a specific calendar year.
-- `--provider codex|claude|all`
-  Choose a single provider or merge both. Default is `all`.
+- `--provider codex|claude|vibe|all`
+  Choose a single provider or merge all available providers. Default is `all`.
 - `--dashboard`
   Start a persistent local dashboard server instead of writing a file.
 - `--host HOST`
@@ -149,6 +156,8 @@ Options:
   Override the Codex data directory.
 - `--claude-config-dir PATH`
   Override the Claude config directory.
+- `--vibe-home PATH`
+  Override the Vibe home directory.
 - `--help`
   Print usage information.
 
@@ -191,9 +200,11 @@ Single-provider output adds the provider suffix:
 - `codegraph-ytd-codex.svg`
 - `codegraph-ytd-claude.png`
 - `codegraph-ytd-claude.svg`
+- `codegraph-ytd-vibe.png`
 - `codegraph-last-365-codex.json`
 - `codegraph-2025-claude.png`
 - `codegraph-2025-claude.svg`
+- `codegraph-2025-vibe.json`
 
 ## Data sources
 
@@ -215,13 +226,32 @@ codegraph --provider codex --codex-home /path/to/.codex
 `codegraph` reads Claude Code session files from:
 
 - `$CLAUDE_CONFIG_DIR/projects`
+- `./.claude/projects`
 - `~/.claude/projects`
 - `~/.config/claude/projects`
+
+If present, `codegraph` also uses Claude session metadata from the matching
+`usage-data/session-meta` directories as a fallback when a session is not represented
+by a project log.
 
 You can override that root with:
 
 ```bash
 codegraph --provider claude --claude-config-dir /path/to/.claude
+```
+
+### Vibe
+
+`codegraph` reads Vibe session metadata from:
+
+- `$VIBE_HOME/logs/session`
+- `./.vibe/logs/session`
+- `~/.vibe/logs/session`
+
+You can override that root with:
+
+```bash
+codegraph --provider vibe --vibe-home /path/to/.vibe
 ```
 
 ## Aggregation behavior
@@ -246,8 +276,21 @@ Behavior:
 - `input` includes `input_tokens + cache_read_input_tokens`
 - `output` includes `output_tokens + cache_creation_input_tokens`
 - cache tokens are preserved in `cache.input` and `cache.output`
+- `usage-data/session-meta/*.json` is used as a fallback source when a session is missing from `projects/`
 - zero-token Claude records are ignored
 - model names are normalized the same way as Codex names
+
+### Vibe parsing
+
+`codegraph` reads Vibe session metadata from each session's `meta.json`.
+
+Behavior:
+
+- `input` uses `stats.session_prompt_tokens`
+- `output` uses `stats.session_completion_tokens`
+- totals use `stats.session_total_llm_tokens` when present
+- activity is attributed to `end_time`, falling back to `start_time`
+- model names come from `config.active_model`
 
 ### Merged provider behavior
 
@@ -272,7 +315,7 @@ When `--provider all` is used:
 
 Pricing data is resolved in this order:
 
-- bundled prices in the codebase for common Codex and Claude models
+- bundled prices in the codebase for common Codex, Claude, and Vibe models
 - cached LiteLLM pricing in `~/.codegraph/litellm-pricing.json`
 - LiteLLM's published model cost map only when a model is still unknown
 
@@ -329,6 +372,8 @@ Each `summary.stats` object contains:
   Codex session scanning and token aggregation.
 - `src/claude.ts`
   Claude Code session scanning and token aggregation.
+- `src/vibe.ts`
+  Vibe session scanning and token aggregation.
 - `src/summary.ts`
   Shared daily/model aggregation and merged-summary utilities.
 - `src/update.ts`
@@ -380,4 +425,5 @@ npx @propel-code/codegraph --help
 node dist/cli.js --provider codex --ytd
 node dist/cli.js --provider all --last-365
 node dist/cli.js --provider claude --year 2025 --format json
+node dist/cli.js --provider vibe --ytd --format json
 ```

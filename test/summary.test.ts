@@ -44,6 +44,41 @@ function buildSummary(
         breakdown: [],
       },
     ],
+    breakdown: {
+      models: [
+        {
+          name: modelName,
+          tokens: {
+            input: total,
+            output: 0,
+            cache: { input: 0, output: 0 },
+            total,
+          },
+        },
+      ],
+      providers: [
+        {
+          provider: { id: providerId, title },
+          tokens: {
+            input: total,
+            output: 0,
+            cache: { input: 0, output: 0 },
+            total,
+          },
+          models: [
+            {
+              name: modelName,
+              tokens: {
+                input: total,
+                output: 0,
+                cache: { input: 0, output: 0 },
+                total,
+              },
+            },
+          ],
+        },
+      ],
+    },
     metrics: {
       last30Days: total,
       input: total,
@@ -125,5 +160,9 @@ test("mergeUsageSummaries combines providers into one unified summary", () => {
   assert.equal(merged.insights.mostUsedModel?.name, "gpt-5-codex");
   assert.equal(merged.insights.recentMostUsedModel?.name, "claude-sonnet-4-5");
   assert.equal(merged.insights.latestModel?.name, "claude-sonnet-4-5");
+  assert.equal(merged.breakdown.models.length, 2);
+  assert.equal(merged.breakdown.providers.length, 2);
+  assert.equal(merged.breakdown.providers[0]?.provider.id, "codex");
+  assert.equal(merged.breakdown.providers[1]?.provider.id, "claude");
   assert.equal(merged.daily[0]?.breakdown.length, 2);
 });

@@ -29,8 +29,16 @@ const LITELLM_PRICING_URL =
 const PRICING_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const PRICING_CACHE_FILENAME = "litellm-pricing.json";
 
-// Bundled fallback snapshot in LiteLLM's pricing schema for common Codex/Claude models.
+// Bundled fallback snapshot in LiteLLM's pricing schema for common Codex/Claude/Vibe models.
 const BUNDLED_PRICE_MAP: LiteLLMPriceMap = {
+  "devstral-2": {
+    input_cost_per_token: 0.4 / 1_000_000,
+    output_cost_per_token: 2 / 1_000_000,
+  },
+  "devstral-small": {
+    input_cost_per_token: 0.1 / 1_000_000,
+    output_cost_per_token: 0.3 / 1_000_000,
+  },
   "gpt-5": {
     input_cost_per_token: 1.25 / 1_000_000,
     output_cost_per_token: 10 / 1_000_000,

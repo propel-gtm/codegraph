@@ -3,6 +3,7 @@ import type {
   LatestModelInsight,
   ModelUsage,
   ParserStats,
+  ProviderUsage,
   ProviderId,
   TokenTotals,
   UsageSummary,
@@ -68,6 +69,66 @@ function buildBreakdown(modelTotals: Map<string, TokenTotals>): ModelUsage[] {
       name,
       tokens: cloneTokens(tokens),
     }));
+}
+
+function cloneModelUsage(model: ModelUsage): ModelUsage {
+  return {
+    name: model.name,
+    tokens: cloneTokens(model.tokens),
+  };
+}
+
+function cloneProviderUsage(providerUsage: ProviderUsage): ProviderUsage {
+  return {
+    provider: {
+      id: providerUsage.provider.id,
+      title: providerUsage.provider.title,
+    },
+    tokens: cloneTokens(providerUsage.tokens),
+    models: providerUsage.models.map(cloneModelUsage),
+  };
+}
+
+function compareProviderUsage(left: ProviderUsage, right: ProviderUsage): number {
+  if (right.tokens.total !== left.tokens.total) {
+    return right.tokens.total - left.tokens.total;
+  }
+
+  return left.provider.title.localeCompare(right.provider.title);
+}
+
+function buildProviderUsage(
+  providerId: ProviderId,
+  title: string,
+  tokens: TokenTotals,
+  modelTotals: Map<string, TokenTotals>,
+): ProviderUsage {
+  return {
+    provider: {
+      id: providerId,
+      title,
+    },
+    tokens: cloneTokens(tokens),
+    models: buildBreakdown(modelTotals),
+  };
+}
+
+function summarizeDailyTotals(daily: DailyUsage[]): TokenTotals {
+  return daily.reduce<TokenTotals>((accumulator, row) => {
+    addTokens(accumulator, row);
+    return accumulator;
+  }, createEmptyTokens());
+}
+
+export function buildProviderUsageFromSummary(summary: UsageSummary): ProviderUsage {
+  return {
+    provider: {
+      id: summary.provider.id,
+      title: summary.provider.title,
+    },
+    tokens: summarizeDailyTotals(summary.daily),
+    models: summary.breakdown.models.map(cloneModelUsage),
+  };
 }
 
 function topModelUsage(
@@ -201,6 +262,7 @@ export function summarizeUsage(
   start: Date,
   end: Date,
   stats: ParserStats,
+  providerBreakdown?: ProviderUsage[],
 ): UsageSummary {
   const totals = daily.reduce<TokenTotals>((accumulator, row) => {
     addTokens(accumulator, row);
@@ -215,6 +277,13 @@ export function summarizeUsage(
 
     return accumulator;
   }, createEmptyTokens());
+  const models = buildBreakdown(modelTotals);
+  const providers =
+    providerBreakdown && providerBreakdown.length > 0
+      ? providerBreakdown
+          .map(cloneProviderUsage)
+          .sort(compareProviderUsage)
+      : [buildProviderUsage(providerId, title, totals, modelTotals)];
 
   return {
     provider: {
@@ -224,6 +293,10 @@ export function summarizeUsage(
     start: formatLocalDate(start),
     end: formatLocalDate(end),
     daily,
+    breakdown: {
+      models,
+      providers,
+    },
     metrics: {
       last30Days: recentTotals.total,
       input: totals.input,
@@ -296,6 +369,9 @@ export function mergeUsageSummaries(
   const latestModel = pickLatestModel(
     ...summaries.map((summary) => summary.insights.latestModel),
   );
+  const providerBreakdown = summaries
+    .map(buildProviderUsageFromSummary)
+    .sort(compareProviderUsage);
 
   for (const summary of summaries) {
     for (const day of summary.daily) {
@@ -320,5 +396,6 @@ export function mergeUsageSummaries(
     start,
     end,
     mergeStats(summaries),
+    providerBreakdown,
   );
 }

@@ -75,6 +75,41 @@ const sampleSummary: UsageSummary = {
       breakdown: [],
     },
   ],
+  breakdown: {
+    models: [
+      {
+        name: "gpt-5-codex",
+        tokens: {
+          input: 100,
+          output: 40,
+          cache: { input: 10, output: 0 },
+          total: 140,
+        },
+      },
+    ],
+    providers: [
+      {
+        provider: { id: "codex", title: "Codex" },
+        tokens: {
+          input: 100,
+          output: 40,
+          cache: { input: 10, output: 0 },
+          total: 140,
+        },
+        models: [
+          {
+            name: "gpt-5-codex",
+            tokens: {
+              input: 100,
+              output: 40,
+              cache: { input: 10, output: 0 },
+              total: 140,
+            },
+          },
+        ],
+      },
+    ],
+  },
   metrics: {
     last30Days: 140,
     input: 100,
@@ -140,6 +175,25 @@ test("renderHeatmapSvg returns a titled SVG document", () => {
   assert.match(svg, /gpt-5\.4/);
   assert.match(svg, /\(30\)/);
   assert.doesNotMatch(svg, /Mar 7/);
+});
+
+test("renderHeatmapSvg dashboard variant omits standalone summary chrome", () => {
+  const svg = renderHeatmapSvg(sampleSummary, {
+    spend: {
+      totalUsd: 536,
+      pricedModels: 1,
+      unpricedModels: [],
+    },
+    variant: "dashboard",
+  });
+
+  assert.match(svg, /^<svg[\s>]/);
+  assert.doesNotMatch(svg, /THEORETICAL/);
+  assert.doesNotMatch(svg, /TOKEN SPEND/);
+  assert.doesNotMatch(svg, /MOST USED MODEL/);
+  assert.doesNotMatch(svg, /LATEST MODEL/);
+  assert.doesNotMatch(svg, /2026-03-01 to 2026-03-07/);
+  assert.match(svg, /viewBox="0 0 500 \d+"/);
 });
 
 test("renderHeatmapSvg scales short ranges to use more space", () => {

@@ -36,6 +36,7 @@ interface CellDay {
 
 interface HeatmapRenderOptions {
   spend?: UsageSpendEstimate | null;
+  variant?: "standalone" | "dashboard";
 }
 
 interface GridLayout {
@@ -247,6 +248,10 @@ function formatUsd(value: number): string {
 }
 
 function resolveGridLayout(weekCount: number): GridLayout {
+  return resolveStandaloneGridLayout(weekCount);
+}
+
+function resolveStandaloneGridLayout(weekCount: number): GridLayout {
   const minCanvasWidth = 940;
   const minCanvasHeight = 438;
   const padding = 32;
@@ -284,10 +289,47 @@ function resolveGridLayout(weekCount: number): GridLayout {
   };
 }
 
+function resolveDashboardGridLayout(weekCount: number): GridLayout {
+  const minCanvasWidth = 500;
+  const minCanvasHeight = 196;
+  const padding = 20;
+  const left = 34;
+  const top = 32;
+  const gap = 4;
+  const minCellSize = 10;
+  const maxCellSize = 28;
+  const availableGridWidth = minCanvasWidth - left - padding;
+  const fittedCellSize =
+    weekCount > 0
+      ? Math.floor((availableGridWidth + gap) / weekCount) - gap
+      : minCellSize;
+  const cellSize = Math.max(
+    minCellSize,
+    Math.min(maxCellSize, fittedCellSize),
+  );
+  const gridWidth = Math.max(0, weekCount * (cellSize + gap) - gap);
+  const gridHeight = 7 * (cellSize + gap) - gap;
+  const legendY = top + gridHeight + 26;
+
+  return {
+    cellRadius: Math.max(3, Math.min(7, Math.round(cellSize * 0.25))),
+    cellSize,
+    gap,
+    gridHeight,
+    gridWidth,
+    height: Math.max(minCanvasHeight, legendY + 16),
+    left,
+    padding,
+    top,
+    width: Math.max(minCanvasWidth, left + gridWidth + padding),
+  };
+}
+
 export function renderHeatmapSvg(
   summary: UsageSummary,
   options: HeatmapRenderOptions = {},
 ): string {
+  const variant = options.variant ?? "standalone";
   const theme = THEME;
   const dayMap = new Map<string, DailyUsage>(
     summary.daily.map((day) => [day.date, day]),
@@ -305,7 +347,10 @@ export function renderHeatmapSvg(
     padding,
     top,
     width,
-  } = resolveGridLayout(weeks.length);
+  } =
+    variant === "dashboard"
+      ? resolveDashboardGridLayout(weeks.length)
+      : resolveStandaloneGridLayout(weeks.length);
   const mostUsedModelName = summary.insights.mostUsedModel
     ? truncate(summary.insights.mostUsedModel.name, 18)
     : "n/a";
@@ -336,6 +381,33 @@ export function renderHeatmapSvg(
   const insightY = dividerY + 28;
   const insightColumnWidth = (width - padding * 2) / 4;
   const heatmapLabelFontSize = cellSize >= 20 ? 14 : 13;
+  const titleMarkup =
+    variant === "standalone"
+      ? `
+  <text x="${padding}" y="48" fill="${theme.text}" font-family="${TITLE_FONT_STACK}" font-size="30" font-weight="800">codegraph</text>
+  <text x="${padding}" y="72" fill="${theme.muted}" font-family="${MONO_FONT_STACK}" font-size="12">${escapeXml(summary.start)} to ${escapeXml(summary.end)}</text>`
+      : "";
+  const metricMarkup =
+    variant === "standalone"
+      ? `
+  ${metricBlock("Theoretical\nToken Spend", spendValue, metricRowX, metricRowY, theme, metricCardWidth, metricCardHeight)}
+  ${metricBlock("Last 30 days", compactNumber(summary.metrics.last30Days), metricRowX + (metricCardWidth + metricGap), metricRowY, theme, metricCardWidth, metricCardHeight)}
+  ${metricBlock("Input tokens", compactNumber(summary.metrics.input), metricRowX + (metricCardWidth + metricGap) * 2, metricRowY, theme, metricCardWidth, metricCardHeight)}
+  ${metricBlock("Output tokens", compactNumber(summary.metrics.output), metricRowX + (metricCardWidth + metricGap) * 3, metricRowY, theme, metricCardWidth, metricCardHeight)}`
+      : "";
+  const insightMarkup =
+    variant === "standalone"
+      ? `
+  <line x1="${padding}" y1="${dividerY}" x2="${width - padding}" y2="${dividerY}" stroke="${theme.border}" />
+  ${modelInsightBlock("Most used model", mostUsedModelName, mostUsedModelTotal, padding, insightY, theme)}
+  ${modelInsightBlock("Latest model", latestModelName, latestModelTotal, padding + insightColumnWidth, insightY, theme)}
+  ${insightBlock("Longest streak", `${summary.insights.streaks.longest}d`, padding + insightColumnWidth * 2, insightY, theme)}
+  ${insightBlock("Current streak", `${summary.insights.streaks.current}d`, padding + insightColumnWidth * 3, insightY, theme)}`
+      : "";
+  const description =
+    variant === "standalone"
+      ? "A rolling usage heatmap with token totals and model insights."
+      : "A rolling usage heatmap for the selected provider.";
 
   const monthText = monthLabels
     .map((label, index) => {
@@ -387,7 +459,7 @@ export function renderHeatmapSvg(
   return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="title description">
   <title id="title">Codegraph usage heatmap</title>
-  <desc id="description">A rolling usage heatmap for Codex sessions with token totals and model insights.</desc>
+  <desc id="description">${escapeXml(description)}</desc>
   <defs>
     <linearGradient id="codegraph-bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="${theme.backgroundStart}" />
@@ -395,21 +467,13 @@ export function renderHeatmapSvg(
     </linearGradient>
   </defs>
   <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="22" fill="url(#codegraph-bg)" stroke="${theme.border}" />
-  <text x="${padding}" y="48" fill="${theme.text}" font-family="${TITLE_FONT_STACK}" font-size="30" font-weight="800">codegraph</text>
-  <text x="${padding}" y="72" fill="${theme.muted}" font-family="${MONO_FONT_STACK}" font-size="12">${escapeXml(summary.start)} to ${escapeXml(summary.end)}</text>
-  ${metricBlock("Theoretical\nToken Spend", spendValue, metricRowX, metricRowY, theme, metricCardWidth, metricCardHeight)}
-  ${metricBlock("Last 30 days", compactNumber(summary.metrics.last30Days), metricRowX + (metricCardWidth + metricGap), metricRowY, theme, metricCardWidth, metricCardHeight)}
-  ${metricBlock("Input tokens", compactNumber(summary.metrics.input), metricRowX + (metricCardWidth + metricGap) * 2, metricRowY, theme, metricCardWidth, metricCardHeight)}
-  ${metricBlock("Output tokens", compactNumber(summary.metrics.output), metricRowX + (metricCardWidth + metricGap) * 3, metricRowY, theme, metricCardWidth, metricCardHeight)}
+  ${titleMarkup}
+  ${metricMarkup}
   ${monthText}
   ${dayLabels}
   ${cells}
   ${legend(left, legendY, theme)}
-  <line x1="${padding}" y1="${dividerY}" x2="${width - padding}" y2="${dividerY}" stroke="${theme.border}" />
-  ${modelInsightBlock("Most used model", mostUsedModelName, mostUsedModelTotal, padding, insightY, theme)}
-  ${modelInsightBlock("Latest model", latestModelName, latestModelTotal, padding + insightColumnWidth, insightY, theme)}
-  ${insightBlock("Longest streak", `${summary.insights.streaks.longest}d`, padding + insightColumnWidth * 2, insightY, theme)}
-  ${insightBlock("Current streak", `${summary.insights.streaks.current}d`, padding + insightColumnWidth * 3, insightY, theme)}
+  ${insightMarkup}
 </svg>`.trim();
 }
 

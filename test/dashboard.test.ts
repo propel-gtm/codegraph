@@ -101,6 +101,41 @@ function buildSummary(): UsageSummary {
         ],
       },
     ],
+    breakdown: {
+      models: [
+        {
+          name: "gpt-5.4",
+          tokens: {
+            input: 390,
+            output: 120,
+            cache: { input: 30, output: 0 },
+            total: 510,
+          },
+        },
+      ],
+      providers: [
+        {
+          provider: { id: "codex", title: "Codex" },
+          tokens: {
+            input: 390,
+            output: 120,
+            cache: { input: 30, output: 0 },
+            total: 510,
+          },
+          models: [
+            {
+              name: "gpt-5.4",
+              tokens: {
+                input: 390,
+                output: 120,
+                cache: { input: 30, output: 0 },
+                total: 510,
+              },
+            },
+          ],
+        },
+      ],
+    },
     metrics: {
       last30Days: 510,
       input: 390,
@@ -192,6 +227,15 @@ test("dashboard renderers include live refresh affordances", () => {
   assert.match(content, /Refreshes every 5 min/);
   assert.match(content, /Top days/);
   assert.match(content, /2026-03-03/);
+  assert.match(content, /Most used model/);
+  assert.match(content, /Latest model/);
+  assert.match(content, /Token breakdown/);
+  assert.match(content, /Providers/);
+  assert.match(content, /Models/);
+  assert.match(content, /390 in \/ 120 out/);
+  assert.doesNotMatch(content, /MOST USED MODEL/);
+  assert.doesNotMatch(content, /LATEST MODEL/);
+  assert.doesNotMatch(content, /THEORETICAL/);
   assert.match(html, /setInterval/);
   assert.match(html, /\/dashboard-content/);
   assert.match(html, /300000/);

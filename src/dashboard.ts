@@ -6,7 +6,7 @@ import {
   type DateSelection,
 } from "./codegraph.ts";
 import { renderHeatmapSvg } from "./heatmap.ts";
-import type { ProviderId, UsageSummary } from "./types.ts";
+import type { ProviderId, TokenTotals, UsageSummary } from "./types.ts";
 import { compactNumber, escapeXml } from "./utils.ts";
 
 interface DailyHighlight {
@@ -44,6 +44,7 @@ export interface DashboardServerOptions extends DateSelection {
   port: number;
   provider: ProviderId;
   refreshIntervalMs: number;
+  vibeHome?: string;
 }
 
 export interface DashboardServerHandle {
@@ -56,6 +57,12 @@ interface DashboardRouteResponse {
   body: string;
   headers: Record<string, string>;
   statusCode: number;
+}
+
+interface BreakdownRow {
+  label: string;
+  meta: string;
+  total: string;
 }
 
 export interface DashboardRequestContext {
@@ -139,7 +146,7 @@ export function buildDashboardSnapshot(
     nextRefreshAt: new Date(Date.parse(generatedAt) + refreshIntervalMs).toISOString(),
     spend,
     summary,
-    svg: renderHeatmapSvg(summary, { spend }),
+    svg: renderHeatmapSvg(summary, { variant: "dashboard" }),
   };
 }
 
@@ -208,6 +215,79 @@ function renderSourceList(summary: UsageSummary): string {
           ? `<p class="panel-footnote">+${hiddenCount} more path${hiddenCount === 1 ? "" : "s"}</p>`
           : ""
       }
+    </section>
+  `;
+}
+
+function formatTokenSplit(tokens: TokenTotals): string {
+  return `${compactNumber(tokens.input)} in / ${compactNumber(tokens.output)} out`;
+}
+
+function renderBreakdownRows(items: BreakdownRow[], emptyText: string): string {
+  if (items.length === 0) {
+    return `<li class="list-empty">${escapeXml(emptyText)}</li>`;
+  }
+
+  return items
+    .map(
+      (item) => `
+        <li class="breakdown-row">
+          <div class="breakdown-copy">
+            <strong class="breakdown-label" title="${escapeXml(item.label)}">${escapeXml(item.label)}</strong>
+            <span class="breakdown-meta">${escapeXml(item.meta)}</span>
+          </div>
+          <strong class="breakdown-total">${escapeXml(item.total)}</strong>
+        </li>
+      `,
+    )
+    .join("");
+}
+
+function renderUsageBreakdown(summary: UsageSummary): string {
+  const providerRows = summary.breakdown.providers.map((entry) => {
+    const topModel = entry.models[0]?.name;
+
+    return {
+      label: entry.provider.title,
+      meta: topModel
+        ? `${formatTokenSplit(entry.tokens)} | top model ${topModel}`
+        : formatTokenSplit(entry.tokens),
+      total: compactNumber(entry.tokens.total),
+    };
+  });
+  const topModelCount = Math.min(summary.breakdown.models.length, 8);
+  const modelRows = summary.breakdown.models.slice(0, topModelCount).map((entry) => ({
+    label: entry.name,
+    meta: formatTokenSplit(entry.tokens),
+    total: compactNumber(entry.tokens.total),
+  }));
+
+  return `
+    <section class="panel breakdown-panel">
+      <div class="panel-heading">
+        <h3>Token breakdown</h3>
+        <span class="panel-meta">${escapeXml(summary.breakdown.providers.length === 1 ? "1 provider" : `${summary.breakdown.providers.length} providers`)}</span>
+      </div>
+      <div class="breakdown-grid">
+        <section class="breakdown-section">
+          <div class="breakdown-heading">
+            <h4>Providers</h4>
+            <span class="panel-meta">totals</span>
+          </div>
+          <ul class="list breakdown-list">
+            ${renderBreakdownRows(providerRows, "No provider usage in this window.")}
+          </ul>
+        </section>
+        <section class="breakdown-section">
+          <div class="breakdown-heading">
+            <h4>Models</h4>
+            <span class="panel-meta">${escapeXml(topModelCount > 0 ? `top ${topModelCount}` : "totals")}</span>
+          </div>
+          <ul class="list breakdown-list">
+            ${renderBreakdownRows(modelRows, "No model usage in this window.")}
+          </ul>
+        </section>
+      </div>
     </section>
   `;
 }
@@ -336,6 +416,7 @@ export function renderDashboardContent(state: DashboardViewState): string {
       </section>
     </section>
     <section class="bottom-grid">
+      ${renderUsageBreakdown(summary)}
       ${renderHighlightList("Top days", activity.topDays)}
     </section>
   `;
@@ -440,6 +521,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       h1,
       h2,
       h3,
+      h4,
       p {
         margin: 0;
       }
@@ -455,6 +537,12 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       h3 {
         font-size: 1rem;
         letter-spacing: -0.01em;
+      }
+
+      h4 {
+        font-size: 0.88rem;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
       }
 
       .hero-subtitle {
@@ -573,14 +661,17 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         background: var(--panel-strong);
         border: 1px solid var(--border);
         border-radius: 24px;
+        display: flex;
+        justify-content: center;
         overflow: auto;
-        padding: 12px;
+        padding: 10px;
       }
 
       .heatmap-frame svg {
         display: block;
         height: auto;
-        max-width: 100%;
+        max-width: 680px;
+        width: 100%;
       }
 
       .side-column {
@@ -636,7 +727,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       .bottom-grid {
         display: grid;
         gap: 18px;
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
       }
 
       .list {
@@ -666,6 +757,68 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         color: var(--muted);
       }
 
+      .breakdown-panel {
+        padding: 18px;
+      }
+
+      .breakdown-grid {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .breakdown-section {
+        display: grid;
+        gap: 12px;
+      }
+
+      .breakdown-heading {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+      }
+
+      .breakdown-list {
+        gap: 0;
+      }
+
+      .breakdown-row {
+        align-items: center;
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        padding: 12px 0 0;
+      }
+
+      .breakdown-row:first-child {
+        border-top: none;
+        padding-top: 0;
+      }
+
+      .breakdown-copy {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+
+      .breakdown-label,
+      .breakdown-total {
+        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+      }
+
+      .breakdown-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .breakdown-meta {
+        color: var(--muted);
+        font-size: 0.79rem;
+      }
+
       .source-list {
         gap: 12px;
       }
@@ -687,6 +840,10 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         .dashboard-grid {
           grid-template-columns: 1fr;
         }
+
+        .bottom-grid {
+          grid-template-columns: 1fr;
+        }
       }
 
       @media (max-width: 860px) {
@@ -697,6 +854,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
         .status-strip,
         .insight-list,
+        .breakdown-grid,
         .metrics-grid {
           grid-template-columns: 1fr 1fr;
         }
@@ -714,6 +872,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
         .status-strip,
         .insight-list,
+        .breakdown-grid,
         .metrics-grid {
           grid-template-columns: 1fr;
         }
@@ -801,6 +960,7 @@ async function generateSnapshot(
     options.end,
     options.codexHome,
     options.claudeConfigDir,
+    options.vibeHome,
   );
   const spend = await estimateUsageSpend(summary);
 
