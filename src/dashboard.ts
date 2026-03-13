@@ -649,6 +649,10 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         padding: 18px;
       }
 
+      .heatmap-panel {
+        align-self: start;
+      }
+
       .panel-heading {
         align-items: center;
         display: flex;

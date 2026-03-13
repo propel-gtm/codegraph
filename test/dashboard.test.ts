@@ -239,6 +239,7 @@ test("dashboard renderers include live refresh affordances", () => {
   assert.match(html, /setInterval/);
   assert.match(html, /\/dashboard-content/);
   assert.match(html, /300000/);
+  assert.match(html, /\.heatmap-panel\s*\{\s*align-self: start;/);
 });
 
 test("handleDashboardRequest serves dashboard routes from in-memory state", async () => {

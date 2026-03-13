@@ -193,7 +193,9 @@ test("renderHeatmapSvg dashboard variant omits standalone summary chrome", () =>
   assert.doesNotMatch(svg, /MOST USED MODEL/);
   assert.doesNotMatch(svg, /LATEST MODEL/);
   assert.doesNotMatch(svg, /2026-03-01 to 2026-03-07/);
-  assert.match(svg, /viewBox="0 0 500 \d+"/);
+  assert.match(svg, /viewBox="0 0 500 304"/);
+  assert.match(svg, /<rect x="235" y="32" width="28" height="28" rx="7" fill="/);
+  assert.match(svg, /text-anchor="middle" dominant-baseline="middle"/);
 });
 
 test("renderHeatmapSvg scales short ranges to use more space", () => {

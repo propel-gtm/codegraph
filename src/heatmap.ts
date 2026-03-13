@@ -42,11 +42,14 @@ interface HeatmapRenderOptions {
 interface GridLayout {
   cellRadius: number;
   cellSize: number;
+  dayLabelX: number;
   gap: number;
   gridHeight: number;
   gridWidth: number;
   height: number;
+  legendY: number;
   left: number;
+  monthLabelY: number;
   padding: number;
   top: number;
   width: number;
@@ -278,11 +281,14 @@ function resolveStandaloneGridLayout(weekCount: number): GridLayout {
   return {
     cellRadius: Math.max(3, Math.min(6, Math.round(cellSize * 0.25))),
     cellSize,
+    dayLabelX: 24,
     gap,
     gridHeight,
     gridWidth,
     height: Math.max(minCanvasHeight, insightY + 54),
+    legendY,
     left,
+    monthLabelY: top - 18,
     padding,
     top,
     width: Math.max(minCanvasWidth, left + gridWidth + padding),
@@ -293,12 +299,12 @@ function resolveDashboardGridLayout(weekCount: number): GridLayout {
   const minCanvasWidth = 500;
   const minCanvasHeight = 196;
   const padding = 20;
-  const left = 34;
+  const labelGutter = 30;
   const top = 32;
   const gap = 4;
   const minCellSize = 10;
   const maxCellSize = 28;
-  const availableGridWidth = minCanvasWidth - left - padding;
+  const availableGridWidth = minCanvasWidth - padding * 2 - labelGutter;
   const fittedCellSize =
     weekCount > 0
       ? Math.floor((availableGridWidth + gap) / weekCount) - gap
@@ -309,19 +315,26 @@ function resolveDashboardGridLayout(weekCount: number): GridLayout {
   );
   const gridWidth = Math.max(0, weekCount * (cellSize + gap) - gap);
   const gridHeight = 7 * (cellSize + gap) - gap;
-  const legendY = top + gridHeight + 26;
+  const baseWidth = padding * 2 + labelGutter + gridWidth;
+  const width = Math.max(minCanvasWidth, baseWidth);
+  const horizontalInset = Math.max(0, Math.floor((width - baseWidth) / 2));
+  const left = padding + labelGutter + horizontalInset;
+  const legendY = top + gridHeight + 34;
 
   return {
     cellRadius: Math.max(3, Math.min(7, Math.round(cellSize * 0.25))),
     cellSize,
+    dayLabelX: Math.max(padding, left - 22),
     gap,
     gridHeight,
     gridWidth,
-    height: Math.max(minCanvasHeight, legendY + 16),
+    height: Math.max(minCanvasHeight, legendY + 18),
+    legendY,
     left,
+    monthLabelY: top - 18,
     padding,
     top,
-    width: Math.max(minCanvasWidth, left + gridWidth + padding),
+    width,
   };
 }
 
@@ -339,11 +352,14 @@ export function renderHeatmapSvg(
   const {
     cellRadius,
     cellSize,
+    dayLabelX,
     gap,
     gridHeight,
     gridWidth,
     height,
+    legendY,
     left,
+    monthLabelY,
     padding,
     top,
     width,
@@ -376,7 +392,6 @@ export function renderHeatmapSvg(
   const metricRowX =
     width - padding - (metricCardWidth * metricCardCount + metricGap * (metricCardCount - 1));
   const metricRowY = 36;
-  const legendY = top + gridHeight + 34;
   const dividerY = legendY + 38;
   const insightY = dividerY + 28;
   const insightColumnWidth = (width - padding * 2) / 4;
@@ -415,10 +430,13 @@ export function renderHeatmapSvg(
         return "";
       }
 
-      const x = left + index * (cellSize + gap) + 1;
+      const x =
+        variant === "dashboard"
+          ? left + index * (cellSize + gap) + cellSize / 2
+          : left + index * (cellSize + gap) + 1;
       const monthMonogram = label.slice(0, 1).toUpperCase();
 
-      return `<text x="${x}" y="${top - 18}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="${heatmapLabelFontSize}" font-weight="600">${escapeXml(monthMonogram)}</text>`;
+      return `<text x="${x}" y="${monthLabelY}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="${heatmapLabelFontSize}" font-weight="600"${variant === "dashboard" ? ' text-anchor="middle" dominant-baseline="middle"' : ""}>${escapeXml(monthMonogram)}</text>`;
     })
     .join("");
 
@@ -427,9 +445,12 @@ export function renderHeatmapSvg(
       return "";
     }
 
-    const y = top + index * (cellSize + gap) + cellSize - 1;
+    const y =
+      variant === "dashboard"
+        ? top + index * (cellSize + gap) + cellSize / 2
+        : top + index * (cellSize + gap) + cellSize - 1;
 
-    return `<text x="24" y="${y}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="${heatmapLabelFontSize}" font-weight="600">${escapeXml(label.slice(0, 1).toUpperCase())}</text>`;
+    return `<text x="${dayLabelX}" y="${y}" fill="${theme.muted}" font-family="${UI_FONT_STACK}" font-size="${heatmapLabelFontSize}" font-weight="600"${variant === "dashboard" ? ' text-anchor="middle" dominant-baseline="middle"' : ""}>${escapeXml(label.slice(0, 1).toUpperCase())}</text>`;
   }).join("");
 
   const cells = weeks
