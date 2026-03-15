@@ -63,15 +63,15 @@ const MONO_FONT_STACK =
   "'IBM Plex Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace";
 
 const THEME: Theme = {
-  backgroundStart: "#fbfcf7",
-  backgroundEnd: "#eff5ee",
-  panel: "#f7faf8",
-  border: "#d7e2dc",
+  backgroundStart: "#f9fbf8",
+  backgroundEnd: "#eaf3ed",
+  panel: "#f4f9f6",
+  border: "#cddbd4",
   text: "#122019",
   muted: "#5f6f67",
   accent: "#2a8c62",
-  empty: "#dde8e1",
-  palette: ["#c9ddd2", "#9fcab5", "#69af8b", "#33815f", "#0f5c43"],
+  empty: "#e8eeea",
+  palette: ["#aecfbe", "#80b8a0", "#4ea07b", "#237a56", "#0a5a3e"],
 };
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];

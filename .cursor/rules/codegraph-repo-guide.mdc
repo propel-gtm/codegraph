@@ -1,0 +1,14 @@
+---
+description: Repository-wide guidance for working in codegraph
+alwaysApply: true
+---
+
+Follow `AGENTS.md` as the primary repo contract for this repository.
+
+Key reminders:
+
+- Use Bun commands for local verification.
+- Keep parser and CLI changes aligned with `README.md` and `test/`.
+- Do not hand-edit `dist/`.
+
+@AGENTS.md

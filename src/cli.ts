@@ -20,16 +20,16 @@ const JSON_EXPORT_VERSION = "0.2.0";
 
 const HELP_TEXT = `codegraph
 
-Generate a local AI coding usage heatmap from Codex, Claude Code, and Vibe session files.
+Generate a local AI coding usage heatmap from Codex, Claude Code, Vibe, and Grok Code session files.
 
 Usage:
-  codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|vibe|all] [--format svg|png|json] [--output ./codegraph-ytd.png]
-  codegraph --dashboard [--ytd | --last-365 | --year YYYY] [--provider codex|claude|vibe|all] [--port 4269] [--refresh-minutes 5]
+  codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|vibe|grok|all] [--format svg|png|json] [--output ./codegraph-ytd.png]
+  codegraph --dashboard [--ytd | --last-365 | --year YYYY] [--provider codex|claude|vibe|grok|all] [--port 4269] [--refresh-minutes 5]
 
 Options:
   --format, -f              Output format: svg, png, or json
   --output, -o              Output path
-  --provider                Provider selection: codex, claude, vibe, or all
+  --provider                Provider selection: codex, claude, vibe, grok, or all
   --dashboard               Start a persistent local dashboard server
   --host                    Dashboard host (default: 127.0.0.1)
   --port                    Dashboard port (default: 4269)
@@ -40,6 +40,7 @@ Options:
   --codex-home              Override the Codex home directory
   --claude-config-dir       Override the Claude config directory
   --vibe-home               Override the Vibe home directory
+  --grok-home               Override the Grok Code home directory
   --help, -h                Show this help
 `;
 
@@ -105,6 +106,7 @@ async function main(): Promise<void> {
       "codex-home": { type: "string" },
       "claude-config-dir": { type: "string" },
       "vibe-home": { type: "string" },
+      "grok-home": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: false,
@@ -152,6 +154,9 @@ async function main(): Promise<void> {
       ...(values["vibe-home"]
         ? { vibeHome: values["vibe-home"] }
         : {}),
+      ...(values["grok-home"]
+        ? { grokHome: values["grok-home"] }
+        : {}),
     });
     const upgradeNotice = await getUpgradeNotice();
 
@@ -187,6 +192,7 @@ async function main(): Promise<void> {
     values["codex-home"],
     values["claude-config-dir"],
     values["vibe-home"],
+    values["grok-home"],
   );
 
   await ensureParentDirectory(outputPath);

@@ -40,6 +40,7 @@ interface DashboardViewState {
 export interface DashboardServerOptions extends DateSelection {
   claudeConfigDir?: string;
   codexHome?: string;
+  grokHome?: string;
   host: string;
   port: number;
   provider: ProviderId;
@@ -191,17 +192,30 @@ function renderHighlightList(
 }
 
 function renderSourceList(summary: UsageSummary): string {
-  const sourcePaths = summary.stats.sourcePaths.slice(0, 4);
-  const paths = sourcePaths.length
-    ? sourcePaths
-        .map(
-          (path) => `
-            <li class="source-path" title="${escapeXml(path)}">${escapeXml(path)}</li>
-          `,
-        )
-        .join("")
+  const allPaths = summary.stats.sourcePaths;
+  const visiblePaths = allPaths.slice(0, 4);
+  const hiddenPaths = allPaths.slice(4);
+
+  const renderPath = (path: string) =>
+    `<li class="source-path" title="${escapeXml(path)}">${escapeXml(path)}</li>`;
+
+  const visibleItems = visiblePaths.length
+    ? visiblePaths.map(renderPath).join("")
     : `<li class="list-empty">No source directories reported.</li>`;
-  const hiddenCount = Math.max(summary.stats.sourcePaths.length - sourcePaths.length, 0);
+
+  const overflow =
+    hiddenPaths.length > 0
+      ? `
+        <details class="source-overflow">
+          <summary class="source-overflow-toggle">
+            +${hiddenPaths.length} more path${hiddenPaths.length === 1 ? "" : "s"}
+          </summary>
+          <ul class="list source-list source-list-extra">
+            ${hiddenPaths.map(renderPath).join("")}
+          </ul>
+        </details>
+      `
+      : "";
 
   return `
     <section class="panel source-panel">
@@ -209,12 +223,8 @@ function renderSourceList(summary: UsageSummary): string {
         <h3>Sources</h3>
         <span class="panel-meta">${escapeXml(summary.stats.sourceLabel)}</span>
       </div>
-      <ul class="list source-list">${paths}</ul>
-      ${
-        hiddenCount > 0
-          ? `<p class="panel-footnote">+${hiddenCount} more path${hiddenCount === 1 ? "" : "s"}</p>`
-          : ""
-      }
+      <ul class="list source-list">${visibleItems}</ul>
+      ${overflow}
     </section>
   `;
 }
@@ -244,7 +254,8 @@ function renderBreakdownRows(items: BreakdownRow[], emptyText: string): string {
 }
 
 function renderUsageBreakdown(summary: UsageSummary): string {
-  const providerRows = summary.breakdown.providers.map((entry) => {
+  const topProviderCount = Math.min(summary.breakdown.providers.length, 4);
+  const providerRows = summary.breakdown.providers.slice(0, topProviderCount).map((entry) => {
     const topModel = entry.models[0]?.name;
 
     return {
@@ -272,7 +283,7 @@ function renderUsageBreakdown(summary: UsageSummary): string {
         <section class="breakdown-section">
           <div class="breakdown-heading">
             <h4>Providers</h4>
-            <span class="panel-meta">totals</span>
+            <span class="panel-meta">${escapeXml(topProviderCount > 0 ? `top ${topProviderCount}` : "totals")}</span>
           </div>
           <ul class="list breakdown-list">
             ${renderBreakdownRows(providerRows, "No provider usage in this window.")}
@@ -493,7 +504,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         backdrop-filter: blur(18px);
         border: 1px solid var(--border);
         border-radius: 28px;
-        box-shadow: 0 18px 40px var(--shadow);
+        box-shadow: 0 4px 16px var(--shadow), 0 1px 3px rgba(18, 32, 25, 0.06);
       }
 
       .hero {
@@ -501,7 +512,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         display: flex;
         gap: 16px;
         justify-content: space-between;
-        padding: 24px 26px;
+        padding: 28px 30px 26px;
       }
 
       .hero-copy {
@@ -610,12 +621,15 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       }
 
       .status-strip {
+        background: var(--panel);
+        backdrop-filter: blur(18px);
         border: 1px solid var(--border);
         border-radius: 22px;
+        box-shadow: 0 2px 12px var(--shadow);
         display: grid;
         gap: 12px;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        padding: 14px 18px;
+        padding: 16px 20px;
       }
 
       .status-strip > div {
@@ -630,10 +644,12 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       .panel-footnote {
         color: var(--muted);
         font-size: 0.79rem;
+        font-weight: 500;
       }
 
       .panel-meta {
         font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+        font-weight: 400;
       }
 
       .dashboard-grid {
@@ -663,12 +679,12 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
       .heatmap-frame {
         background: var(--panel-strong);
-        border: 1px solid var(--border);
-        border-radius: 24px;
+        border: 1px solid rgba(21, 32, 25, 0.07);
+        border-radius: 20px;
         display: flex;
         justify-content: center;
         overflow: auto;
-        padding: 10px;
+        padding: 12px;
       }
 
       .heatmap-frame svg {
@@ -694,37 +710,45 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         border: 1px solid var(--border);
         border-radius: 22px;
         display: grid;
-        gap: 10px;
-        min-height: 112px;
-        padding: 16px 18px;
+        align-content: space-between;
+        gap: 6px;
+        min-height: 108px;
+        padding: 16px 18px 18px;
       }
 
       .metric-tile-accent {
-        background: linear-gradient(135deg, rgba(15, 107, 75, 0.12), rgba(255, 252, 246, 0.84));
+        background: linear-gradient(145deg, rgba(15, 107, 75, 0.18) 0%, rgba(219, 238, 227, 0.6) 60%, rgba(255, 252, 246, 0.5) 100%);
+        border-color: rgba(15, 107, 75, 0.22);
       }
 
       .metric-value {
         font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
-        font-size: 1.8rem;
-        letter-spacing: -0.04em;
+        font-size: 2.1rem;
+        letter-spacing: -0.05em;
         line-height: 1;
       }
 
       .insight-list {
         display: grid;
-        gap: 16px;
+        gap: 14px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         margin: 0;
       }
 
       .insight-list div {
         display: grid;
-        gap: 4px;
+        gap: 3px;
+      }
+
+      .insight-list dt {
+        font-weight: 600;
+        letter-spacing: 0.01em;
       }
 
       .insight-list dd {
-        font-size: 0.98rem;
+        font-size: 1rem;
         font-weight: 700;
+        letter-spacing: -0.02em;
         margin: 0;
       }
 
@@ -745,16 +769,23 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       .list-row {
         align-items: center;
         border-top: 1px solid var(--border);
+        border-radius: 8px;
         display: flex;
         font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
         gap: 12px;
         justify-content: space-between;
-        padding-top: 10px;
+        margin: 0 -8px;
+        padding: 10px 8px 0;
+        transition: background 120ms ease;
       }
 
       .list-row:first-child {
         border-top: none;
         padding-top: 0;
+      }
+
+      .list-row:hover {
+        background: rgba(15, 107, 75, 0.06);
       }
 
       .list-empty {
@@ -790,15 +821,22 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       .breakdown-row {
         align-items: center;
         border-top: 1px solid var(--border);
+        border-radius: 8px;
         display: flex;
         gap: 12px;
         justify-content: space-between;
-        padding: 12px 0 0;
+        margin: 0 -8px;
+        padding: 12px 8px 0;
+        transition: background 120ms ease;
       }
 
       .breakdown-row:first-child {
         border-top: none;
         padding-top: 0;
+      }
+
+      .breakdown-row:hover {
+        background: rgba(15, 107, 75, 0.06);
       }
 
       .breakdown-copy {
@@ -833,6 +871,36 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      .source-overflow {
+        margin-top: 10px;
+      }
+
+      .source-overflow-toggle {
+        color: var(--accent);
+        cursor: pointer;
+        font-size: 0.82rem;
+        font-weight: 600;
+        list-style: none;
+        user-select: none;
+      }
+
+      .source-overflow-toggle::-webkit-details-marker {
+        display: none;
+      }
+
+      .source-overflow-toggle::before {
+        content: "▸ ";
+        font-size: 0.7rem;
+      }
+
+      .source-overflow[open] .source-overflow-toggle::before {
+        content: "▾ ";
+      }
+
+      .source-list-extra {
+        margin-top: 10px;
       }
 
       .is-refreshing .refresh-button {
@@ -965,6 +1033,7 @@ async function generateSnapshot(
     options.codexHome,
     options.claudeConfigDir,
     options.vibeHome,
+    options.grokHome,
   );
   const spend = await estimateUsageSpend(summary);
 

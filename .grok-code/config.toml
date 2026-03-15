@@ -1,0 +1,9 @@
+developer_instructions = """
+Follow AGENTS.md as the primary repo contract for this repository.
+
+Key reminders:
+- Use Bun commands for local verification: `bun test`, `bun run typecheck`, `bun run build`, `bun run check`.
+- Provider ingestion logic lives in `src/codex.ts`, `src/claude.ts`, and `src/vibe.ts`.
+- Keep parser and CLI changes aligned with `README.md` and `test/`.
+- Treat `dist/` as generated output instead of hand-edited source.
+"""
