@@ -293,7 +293,7 @@ export async function loadGrokUsage(
     recentModelTotals: new Map<string, TokenTotals>(),
     latestModel: null,
     stats: {
-      sourceLabel: "Grok Code sessions",
+      sourceLabel: "Grok Code",
       sourcePaths: [sessionRoot],
       filesScanned: files.length,
       filesFailed: 0,

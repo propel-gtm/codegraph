@@ -225,7 +225,7 @@ export async function loadVibeUsage(
     recentModelTotals: new Map<string, TokenTotals>(),
     latestModel: null,
     stats: {
-      sourceLabel: "Vibe sessions",
+      sourceLabel: "Vibe",
       sourcePaths: sessionRoots,
       filesScanned: files.length,
       filesFailed: 0,

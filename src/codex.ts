@@ -293,7 +293,7 @@ export async function loadCodexUsage(
     recentModelTotals: new Map<string, TokenTotals>(),
     latestModel: null,
     stats: {
-      sourceLabel: "Codex sessions",
+      sourceLabel: "Codex",
       sourcePaths: [sessionRoot],
       filesScanned: files.length,
       filesFailed: 0,

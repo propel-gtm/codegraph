@@ -4,3 +4,4 @@ dist/
 
 codegraph-*.svg
 codegraph-*.json
+*.png

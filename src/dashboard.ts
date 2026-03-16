@@ -63,6 +63,7 @@ interface DashboardRouteResponse {
 interface BreakdownRow {
   label: string;
   meta: string;
+  pct: number;
   total: string;
 }
 
@@ -119,7 +120,7 @@ function summarizeActivity(summary: UsageSummary): DashboardActivitySummary {
 
       return left.date.localeCompare(right.date);
     })
-    .slice(0, 5);
+    .slice(0, 10);
   const topDay = topDays[0] ?? null;
   const lastActiveDay = activeDays[activeDays.length - 1] ?? null;
 
@@ -191,43 +192,6 @@ function renderHighlightList(
   `;
 }
 
-function renderSourceList(summary: UsageSummary): string {
-  const allPaths = summary.stats.sourcePaths;
-  const visiblePaths = allPaths.slice(0, 4);
-  const hiddenPaths = allPaths.slice(4);
-
-  const renderPath = (path: string) =>
-    `<li class="source-path" title="${escapeXml(path)}">${escapeXml(path)}</li>`;
-
-  const visibleItems = visiblePaths.length
-    ? visiblePaths.map(renderPath).join("")
-    : `<li class="list-empty">No source directories reported.</li>`;
-
-  const overflow =
-    hiddenPaths.length > 0
-      ? `
-        <details class="source-overflow">
-          <summary class="source-overflow-toggle">
-            +${hiddenPaths.length} more path${hiddenPaths.length === 1 ? "" : "s"}
-          </summary>
-          <ul class="list source-list source-list-extra">
-            ${hiddenPaths.map(renderPath).join("")}
-          </ul>
-        </details>
-      `
-      : "";
-
-  return `
-    <section class="panel source-panel">
-      <div class="panel-heading">
-        <h3>Sources</h3>
-        <span class="panel-meta">${escapeXml(summary.stats.sourceLabel)}</span>
-      </div>
-      <ul class="list source-list">${visibleItems}</ul>
-      ${overflow}
-    </section>
-  `;
-}
 
 function formatTokenSplit(tokens: TokenTotals): string {
   return `${compactNumber(tokens.input)} in / ${compactNumber(tokens.output)} out`;
@@ -243,10 +207,13 @@ function renderBreakdownRows(items: BreakdownRow[], emptyText: string): string {
       (item) => `
         <li class="breakdown-row">
           <div class="breakdown-copy">
-            <strong class="breakdown-label" title="${escapeXml(item.label)}">${escapeXml(item.label)}</strong>
+            <div class="breakdown-top">
+              <strong class="breakdown-label" title="${escapeXml(item.label)}">${escapeXml(item.label)}</strong>
+              <strong class="breakdown-total">${escapeXml(item.total)}</strong>
+            </div>
+            <div class="breakdown-bar"><div class="breakdown-bar-fill" style="width:${item.pct.toFixed(1)}%"></div></div>
             <span class="breakdown-meta">${escapeXml(item.meta)}</span>
           </div>
-          <strong class="breakdown-total">${escapeXml(item.total)}</strong>
         </li>
       `,
     )
@@ -255,21 +222,27 @@ function renderBreakdownRows(items: BreakdownRow[], emptyText: string): string {
 
 function renderUsageBreakdown(summary: UsageSummary): string {
   const topProviderCount = Math.min(summary.breakdown.providers.length, 4);
-  const providerRows = summary.breakdown.providers.slice(0, topProviderCount).map((entry) => {
+  const topProviders = summary.breakdown.providers.slice(0, topProviderCount);
+  const maxProviderTokens = Math.max(...topProviders.map((e) => e.tokens.total), 1);
+  const providerRows = topProviders.map((entry) => {
     const topModel = entry.models[0]?.name;
 
     return {
       label: entry.provider.title,
       meta: topModel
-        ? `${formatTokenSplit(entry.tokens)} | top model ${topModel}`
+        ? `${formatTokenSplit(entry.tokens)} · ${topModel}`
         : formatTokenSplit(entry.tokens),
+      pct: (entry.tokens.total / maxProviderTokens) * 100,
       total: compactNumber(entry.tokens.total),
     };
   });
   const topModelCount = Math.min(summary.breakdown.models.length, 8);
-  const modelRows = summary.breakdown.models.slice(0, topModelCount).map((entry) => ({
+  const topModels = summary.breakdown.models.slice(0, topModelCount);
+  const maxModelTokens = Math.max(...topModels.map((e) => e.tokens.total), 1);
+  const modelRows = topModels.map((entry) => ({
     label: entry.name,
     meta: formatTokenSplit(entry.tokens),
+    pct: (entry.tokens.total / maxModelTokens) * 100,
     total: compactNumber(entry.tokens.total),
   }));
 
@@ -334,7 +307,7 @@ export function renderDashboardContent(state: DashboardViewState): string {
         <p class="eyebrow">Persistent dashboard</p>
         <h1>codegraph live dashboard</h1>
         <p class="hero-subtitle">
-          ${escapeXml(summary.provider.title)} usage from
+          Usage from
           <span>${escapeXml(summary.start)}</span>
           to
           <span>${escapeXml(summary.end)}</span>
@@ -423,7 +396,6 @@ export function renderDashboardContent(state: DashboardViewState): string {
             </div>
           </dl>
         </section>
-        ${renderSourceList(summary)}
       </section>
     </section>
     <section class="bottom-grid">
@@ -443,17 +415,24 @@ export function renderDashboardHtml(state: DashboardViewState): string {
     <style>
       :root {
         color-scheme: light;
-        --bg: #f7f2e7;
-        --bg-deep: #edf5ee;
-        --ink: #152019;
-        --muted: #5f6d64;
-        --panel: rgba(255, 252, 246, 0.78);
-        --panel-strong: rgba(244, 250, 246, 0.94);
-        --border: rgba(21, 32, 25, 0.12);
-        --accent: #0f6b4b;
-        --accent-soft: #dbeee3;
-        --warm: #b45c2b;
-        --shadow: rgba(18, 32, 25, 0.12);
+        --bg: #ecf3ef;
+        --bg-deep: #e2ece7;
+        --ink: #0d1e16;
+        --muted: #546860;
+        --panel: rgba(245, 252, 248, 0.86);
+        --panel-strong: rgba(238, 249, 244, 0.97);
+        --border: rgba(13, 30, 22, 0.09);
+        --border-mid: rgba(13, 30, 22, 0.15);
+        --accent: #0b5c40;
+        --accent-light: #148258;
+        --accent-soft: #c8e8d8;
+        --accent-subtle: rgba(11, 92, 64, 0.07);
+        --warm: #9a4e22;
+        --warm-soft: rgba(154, 78, 34, 0.09);
+        --shadow-xs: 0 1px 2px rgba(13, 30, 22, 0.05);
+        --shadow-sm: 0 2px 8px rgba(13, 30, 22, 0.08), 0 1px 2px rgba(13, 30, 22, 0.04);
+        --shadow-md: 0 4px 20px rgba(13, 30, 22, 0.11), 0 1px 4px rgba(13, 30, 22, 0.05);
+        --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
       }
 
       * {
@@ -468,11 +447,14 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
       body {
         background:
-          radial-gradient(circle at top left, rgba(15, 107, 75, 0.14), transparent 34%),
-          radial-gradient(circle at 84% 10%, rgba(180, 92, 43, 0.14), transparent 18%),
-          linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+          radial-gradient(ellipse at 0% 0%, rgba(11, 92, 64, 0.22) 0%, transparent 42%),
+          radial-gradient(ellipse at 92% 8%, rgba(154, 78, 34, 0.16) 0%, transparent 28%),
+          radial-gradient(ellipse at 50% 100%, rgba(11, 92, 64, 0.10) 0%, transparent 50%),
+          linear-gradient(175deg, var(--bg) 0%, var(--bg-deep) 100%);
         color: var(--ink);
         font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
       }
 
       body::before {
@@ -481,50 +463,56 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         pointer-events: none;
         position: fixed;
         background-image:
-          linear-gradient(rgba(21, 32, 25, 0.04) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(21, 32, 25, 0.04) 1px, transparent 1px);
-        background-size: 24px 24px;
-        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.35), transparent 75%);
+          linear-gradient(rgba(13, 30, 22, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(13, 30, 22, 0.035) 1px, transparent 1px);
+        background-size: 28px 28px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.45) 0%, transparent 60%);
+        z-index: 0;
       }
 
       .shell {
         margin: 0 auto;
-        max-width: 1500px;
-        padding: 28px 20px 48px;
+        max-width: 1540px;
+        padding: 24px 22px 56px;
         position: relative;
+        z-index: 1;
       }
 
       #dashboard-root {
         display: grid;
-        gap: 18px;
+        gap: 16px;
       }
+
+      /* ── Panels ── */
 
       .panel {
         background: var(--panel);
-        backdrop-filter: blur(18px);
+        backdrop-filter: blur(20px) saturate(1.4);
         border: 1px solid var(--border);
-        border-radius: 28px;
-        box-shadow: 0 4px 16px var(--shadow), 0 1px 3px rgba(18, 32, 25, 0.06);
+        border-radius: 26px;
+        box-shadow: var(--shadow-md), var(--shadow-inset);
       }
 
+      /* ── Hero ── */
+
       .hero {
-        align-items: end;
+        align-items: flex-end;
         display: flex;
-        gap: 16px;
+        gap: 20px;
         justify-content: space-between;
-        padding: 28px 30px 26px;
+        padding: 30px 34px 28px;
       }
 
       .hero-copy {
         display: grid;
-        gap: 8px;
+        gap: 10px;
       }
 
       .eyebrow {
         color: var(--warm);
-        font-size: 0.78rem;
+        font-size: 0.73rem;
         font-weight: 800;
-        letter-spacing: 0.14em;
+        letter-spacing: 0.16em;
         margin: 0;
         text-transform: uppercase;
       }
@@ -539,20 +527,27 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
       h1 {
         font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
-        font-size: clamp(2rem, 4vw, 3.2rem);
-        letter-spacing: -0.03em;
-        line-height: 0.95;
+        font-size: clamp(2.2rem, 4.5vw, 3.6rem);
+        letter-spacing: -0.04em;
+        line-height: 0.92;
       }
 
-      h2,
-      h3 {
-        font-size: 1rem;
+      h2 {
+        font-size: 0.95rem;
+        font-weight: 700;
         letter-spacing: -0.01em;
       }
 
-      h4 {
+      h3 {
         font-size: 0.88rem;
-        letter-spacing: 0.01em;
+        font-weight: 700;
+        letter-spacing: 0em;
+      }
+
+      h4 {
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
       }
 
@@ -560,7 +555,8 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         color: var(--muted);
         display: flex;
         flex-wrap: wrap;
-        gap: 0.35rem;
+        font-size: 0.9rem;
+        gap: 0.3rem;
         line-height: 1.5;
       }
 
@@ -572,8 +568,9 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       .hero-actions {
         align-items: center;
         display: flex;
+        flex-shrink: 0;
         flex-wrap: wrap;
-        gap: 12px;
+        gap: 10px;
         justify-content: flex-end;
       }
 
@@ -581,9 +578,9 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       .refresh-button {
         border-radius: 999px;
         display: inline-flex;
-        font-size: 0.92rem;
+        font-size: 0.85rem;
         font-weight: 700;
-        padding: 0.8rem 1.05rem;
+        padding: 0.65rem 1.1rem;
       }
 
       .status-pill {
@@ -596,10 +593,11 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         border: none;
         color: white;
         cursor: pointer;
-        transition: transform 140ms ease, opacity 140ms ease;
+        transition: background 130ms ease, transform 130ms ease, box-shadow 130ms ease;
       }
 
       .refresh-button:hover {
+        box-shadow: 0 4px 14px rgba(13, 30, 22, 0.2);
         transform: translateY(-1px);
       }
 
@@ -607,44 +605,54 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         transform: translateY(0);
       }
 
+      /* ── Status banner (error) ── */
+
       .status-banner {
         align-items: center;
-        background: rgba(180, 92, 43, 0.12);
-        border: 1px solid rgba(180, 92, 43, 0.22);
+        background: var(--warm-soft);
+        border: 1px solid rgba(154, 78, 34, 0.2);
         border-radius: 18px;
-        color: #7b3c1b;
+        color: #6d3415;
         display: flex;
         flex-wrap: wrap;
         gap: 0.7rem;
         justify-content: space-between;
-        padding: 14px 18px;
+        padding: 13px 18px;
       }
+
+      /* ── Status strip ── */
 
       .status-strip {
         background: var(--panel);
-        backdrop-filter: blur(18px);
+        backdrop-filter: blur(20px);
         border: 1px solid var(--border);
-        border-radius: 22px;
-        box-shadow: 0 2px 12px var(--shadow);
+        border-radius: 20px;
+        box-shadow: var(--shadow-sm), var(--shadow-inset);
         display: grid;
-        gap: 12px;
+        gap: 0;
         grid-template-columns: repeat(4, minmax(0, 1fr));
-        padding: 16px 20px;
+        overflow: hidden;
       }
 
       .status-strip > div {
+        border-right: 1px solid var(--border);
         display: grid;
-        gap: 4px;
+        gap: 3px;
+        padding: 14px 20px;
+      }
+
+      .status-strip > div:last-child {
+        border-right: none;
       }
 
       .status-label,
       .panel-meta,
       .metric-label,
-      .insight-list dt,
       .panel-footnote {
         color: var(--muted);
-        font-size: 0.79rem;
+        font-size: 0.75rem;
         font-weight: 500;
+        letter-spacing: 0.01em;
       }
 
       .panel-meta {
@@ -652,21 +660,42 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         font-weight: 400;
       }
 
+      .status-strip strong {
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      /* ── Layout grids ── */
+
       .dashboard-grid {
         display: grid;
-        gap: 18px;
-        grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.95fr);
+        gap: 16px;
+        grid-template-columns: minmax(0, 1.75fr) minmax(300px, 0.95fr);
       }
+
+      .bottom-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+      }
+
+      .side-column {
+        display: grid;
+        gap: 16px;
+      }
+
+      /* ── Panel inner layout ── */
 
       .heatmap-panel,
       .insight-panel,
-      .source-panel,
-      .list-panel {
-        padding: 18px;
+      .list-panel,
+      .breakdown-panel {
+        padding: 20px;
       }
 
       .heatmap-panel {
-        align-self: start;
+        align-items: start;
       }
 
       .panel-heading {
@@ -674,17 +703,15 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         display: flex;
         gap: 8px;
         justify-content: space-between;
-        margin-bottom: 14px;
+        margin-bottom: 16px;
       }
 
+      /* ── Heatmap ── */
+
       .heatmap-frame {
-        background: var(--panel-strong);
-        border: 1px solid rgba(21, 32, 25, 0.07);
-        border-radius: 20px;
         display: flex;
         justify-content: center;
         overflow: auto;
-        padding: 12px;
       }
 
       .heatmap-frame svg {
@@ -694,73 +721,93 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         width: 100%;
       }
 
-      .side-column {
-        display: grid;
-        gap: 18px;
-      }
+      /* ── Metric tiles ── */
 
       .metrics-grid {
         display: grid;
-        gap: 12px;
+        gap: 10px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .metric-tile {
         background: var(--panel);
         border: 1px solid var(--border);
-        border-radius: 22px;
-        display: grid;
-        align-content: space-between;
-        gap: 6px;
-        min-height: 108px;
-        padding: 16px 18px 18px;
+        border-radius: 20px;
+        box-shadow: var(--shadow-xs), var(--shadow-inset);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 104px;
+        padding: 16px 18px 17px;
       }
 
       .metric-tile-accent {
-        background: linear-gradient(145deg, rgba(15, 107, 75, 0.18) 0%, rgba(219, 238, 227, 0.6) 60%, rgba(255, 252, 246, 0.5) 100%);
-        border-color: rgba(15, 107, 75, 0.22);
+        background: linear-gradient(148deg, rgba(11, 92, 64, 0.16) 0%, rgba(196, 232, 214, 0.55) 55%, rgba(245, 252, 248, 0.4) 100%);
+        border-color: rgba(11, 92, 64, 0.2);
+      }
+
+      .metric-label {
+        order: -1;
       }
 
       .metric-value {
         font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
-        font-size: 2.1rem;
+        font-size: 2.4rem;
         letter-spacing: -0.05em;
         line-height: 1;
+        margin-top: auto;
       }
+
+      /* ── Insight list ── */
 
       .insight-list {
         display: grid;
-        gap: 14px;
+        gap: 0;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         margin: 0;
       }
 
       .insight-list div {
+        border-top: 1px solid var(--border);
         display: grid;
         gap: 3px;
+        padding: 12px 0;
+      }
+
+      .insight-list div:nth-child(-n+2) {
+        border-top: none;
+        padding-top: 0;
+      }
+
+      .insight-list div:nth-child(odd) {
+        padding-right: 16px;
+      }
+
+      .insight-list div:nth-child(even) {
+        border-left: 1px solid var(--border);
+        padding-left: 16px;
       }
 
       .insight-list dt {
+        color: var(--muted);
+        font-size: 0.74rem;
         font-weight: 600;
-        letter-spacing: 0.01em;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
       }
 
       .insight-list dd {
-        font-size: 1rem;
+        font-size: 0.97rem;
         font-weight: 700;
         letter-spacing: -0.02em;
         margin: 0;
       }
 
-      .bottom-grid {
-        display: grid;
-        gap: 18px;
-        grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
-      }
+      /* ── Lists ── */
 
       .list {
         display: grid;
-        gap: 10px;
+        gap: 0;
         list-style: none;
         margin: 0;
         padding: 0;
@@ -769,42 +816,43 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       .list-row {
         align-items: center;
         border-top: 1px solid var(--border);
-        border-radius: 8px;
         display: flex;
         font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+        font-size: 0.85rem;
         gap: 12px;
         justify-content: space-between;
-        margin: 0 -8px;
-        padding: 10px 8px 0;
-        transition: background 120ms ease;
+        margin: 0 -6px;
+        padding: 10px 6px;
+        border-radius: 8px;
+        transition: background 110ms ease;
       }
 
       .list-row:first-child {
         border-top: none;
-        padding-top: 0;
       }
 
       .list-row:hover {
-        background: rgba(15, 107, 75, 0.06);
+        background: var(--accent-subtle);
       }
 
       .list-empty {
         color: var(--muted);
+        font-size: 0.88rem;
+        padding: 4px 0;
       }
 
-      .breakdown-panel {
-        padding: 18px;
-      }
+      /* ── Breakdown ── */
 
       .breakdown-grid {
+        align-items: start;
         display: grid;
-        gap: 18px;
+        gap: 24px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .breakdown-section {
         display: grid;
-        gap: 12px;
+        gap: 14px;
       }
 
       .breakdown-heading {
@@ -815,100 +863,88 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       }
 
       .breakdown-list {
+        display: grid;
         gap: 0;
       }
 
       .breakdown-row {
-        align-items: center;
         border-top: 1px solid var(--border);
+        margin: 0 -6px;
+        padding: 10px 6px;
         border-radius: 8px;
-        display: flex;
-        gap: 12px;
-        justify-content: space-between;
-        margin: 0 -8px;
-        padding: 12px 8px 0;
-        transition: background 120ms ease;
+        transition: background 110ms ease;
       }
 
       .breakdown-row:first-child {
         border-top: none;
-        padding-top: 0;
       }
 
       .breakdown-row:hover {
-        background: rgba(15, 107, 75, 0.06);
+        background: var(--accent-subtle);
       }
 
       .breakdown-copy {
         display: grid;
-        gap: 4px;
+        gap: 5px;
         min-width: 0;
       }
 
-      .breakdown-label,
-      .breakdown-total {
-        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+      .breakdown-top {
+        align-items: baseline;
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+        min-width: 0;
       }
 
       .breakdown-label {
+        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+        font-size: 0.83rem;
+        font-weight: 700;
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      .breakdown-total {
+        flex-shrink: 0;
+        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+        font-size: 0.83rem;
+        font-weight: 700;
+      }
+
+      .breakdown-bar {
+        background: var(--border);
+        border-radius: 999px;
+        height: 3px;
+        overflow: hidden;
+      }
+
+      .breakdown-bar-fill {
+        background: var(--accent-light);
+        border-radius: 999px;
+        height: 100%;
+        min-width: 3px;
+        transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1);
       }
 
       .breakdown-meta {
         color: var(--muted);
-        font-size: 0.79rem;
+        font-size: 0.76rem;
       }
 
-      .source-list {
-        gap: 12px;
-      }
 
-      .source-path {
-        color: var(--ink);
-        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .source-overflow {
-        margin-top: 10px;
-      }
-
-      .source-overflow-toggle {
-        color: var(--accent);
-        cursor: pointer;
-        font-size: 0.82rem;
-        font-weight: 600;
-        list-style: none;
-        user-select: none;
-      }
-
-      .source-overflow-toggle::-webkit-details-marker {
-        display: none;
-      }
-
-      .source-overflow-toggle::before {
-        content: "▸ ";
-        font-size: 0.7rem;
-      }
-
-      .source-overflow[open] .source-overflow-toggle::before {
-        content: "▾ ";
-      }
-
-      .source-list-extra {
-        margin-top: 10px;
-      }
+      /* ── Refresh state ── */
 
       .is-refreshing .refresh-button {
-        opacity: 0.72;
+        opacity: 0.65;
         pointer-events: none;
       }
 
-      @media (max-width: 1120px) {
+      /* ── Responsive ── */
+
+      @media (max-width: 1160px) {
         .dashboard-grid {
           grid-template-columns: 1fr;
         }
@@ -920,11 +956,26 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
       @media (max-width: 860px) {
         .hero {
-          align-items: start;
+          align-items: flex-start;
           flex-direction: column;
         }
 
-        .status-strip,
+        .status-strip {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .status-strip > div:nth-child(2) {
+          border-right: none;
+        }
+
+        .status-strip > div:nth-child(3) {
+          border-top: 1px solid var(--border);
+        }
+
+        .status-strip > div:nth-child(4) {
+          border-top: 1px solid var(--border);
+        }
+
         .insight-list,
         .breakdown-grid,
         .metrics-grid {
@@ -939,10 +990,22 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
         .panel,
         .status-strip {
-          border-radius: 22px;
+          border-radius: 20px;
         }
 
-        .status-strip,
+        .status-strip {
+          grid-template-columns: 1fr;
+        }
+
+        .status-strip > div {
+          border-right: none;
+          border-top: 1px solid var(--border);
+        }
+
+        .status-strip > div:first-child {
+          border-top: none;
+        }
+
         .insight-list,
         .breakdown-grid,
         .metrics-grid {

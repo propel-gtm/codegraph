@@ -351,7 +351,7 @@ export async function loadClaudeUsage(
     recentModelTotals: new Map<string, TokenTotals>(),
     latestModel: null,
     stats: {
-      sourceLabel: "Claude Code sessions + metadata",
+      sourceLabel: "Claude Code",
       sourcePaths: [...projectRoots, ...sessionMetaRoots],
       filesScanned: projectFiles.length + sessionMetaFiles.length,
       filesFailed: 0,
