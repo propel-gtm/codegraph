@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
 const UPDATE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const UPDATE_CACHE_FILENAME = "update-check.json";
+const UPDATE_CACHE_PATH = join(homedir(), ".codegraph", "update-check.json");
 const REGISTRY_BASE_URL = "https://registry.npmjs.org";
 const PACKAGE_METADATA_URL = new URL("../package.json", import.meta.url);
 
@@ -16,13 +16,6 @@ interface UpdateCache {
   checkedAt: string;
   latestVersion: string | null;
   packageName: string;
-}
-
-function getUpdateCachePath(): string {
-  const baseDir =
-    process.env.CODEGRAPH_CACHE_DIR?.trim() || join(homedir(), ".codegraph");
-
-  return join(baseDir, UPDATE_CACHE_FILENAME);
 }
 
 function parseVersion(value: string): number[] | null {
@@ -73,7 +66,7 @@ async function readPackageMetadata(): Promise<PackageMetadata | null> {
 
 async function readCache(): Promise<UpdateCache | null> {
   try {
-    const raw = await readFile(getUpdateCachePath(), "utf8");
+    const raw = await readFile(UPDATE_CACHE_PATH, "utf8");
     return JSON.parse(raw) as UpdateCache;
   } catch {
     return null;
@@ -84,10 +77,8 @@ export async function writeUpdateCache(value: {
   checkedAt: string;
   latestVersion: string | null;
   packageName: string;
-}): Promise<void> {
+}, cachePath = UPDATE_CACHE_PATH): Promise<void> {
   try {
-    const cachePath = getUpdateCachePath();
-
     await mkdir(dirname(cachePath), { recursive: true });
     await writeFile(cachePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   } catch {
