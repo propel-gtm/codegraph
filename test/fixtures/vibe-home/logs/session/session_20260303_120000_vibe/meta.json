@@ -1,0 +1,1 @@
+{"start_time":"2026-03-03T12:00:00","end_time":"2026-03-03T12:20:00","stats":{"session_prompt_tokens":60,"session_completion_tokens":20,"session_total_llm_tokens":80},"config":{"active_model":"devstral-2"}}
