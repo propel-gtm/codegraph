@@ -73,9 +73,17 @@ async function readCache(): Promise<UpdateCache | null> {
   }
 }
 
-async function writeCache(value: UpdateCache): Promise<void> {
-  await mkdir(dirname(UPDATE_CACHE_PATH), { recursive: true });
-  await writeFile(UPDATE_CACHE_PATH, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+export async function writeUpdateCache(value: {
+  checkedAt: string;
+  latestVersion: string | null;
+  packageName: string;
+}, cachePath = UPDATE_CACHE_PATH): Promise<void> {
+  try {
+    await mkdir(dirname(cachePath), { recursive: true });
+    await writeFile(cachePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  } catch {
+    // Cache writes are best-effort and should not block successful commands.
+  }
 }
 
 async function fetchLatestVersion(packageName: string): Promise<string | null> {
@@ -133,7 +141,7 @@ export async function getUpgradeNotice(): Promise<string | null> {
   if (!cacheIsFresh) {
     latestVersion = await fetchLatestVersion(packageName);
 
-    await writeCache({
+    await writeUpdateCache({
       checkedAt: new Date(now).toISOString(),
       latestVersion,
       packageName,
