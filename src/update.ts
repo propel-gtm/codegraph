@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { homedir } from "node:os";
 
 const UPDATE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const UPDATE_CACHE_PATH = join(homedir(), ".codegraph", "update-check.json");
+const UPDATE_CACHE_FILENAME = "update-check.json";
 const REGISTRY_BASE_URL = "https://registry.npmjs.org";
 const PACKAGE_METADATA_URL = new URL("../package.json", import.meta.url);
 
@@ -16,6 +16,13 @@ interface UpdateCache {
   checkedAt: string;
   latestVersion: string | null;
   packageName: string;
+}
+
+function getUpdateCachePath(): string {
+  const baseDir =
+    process.env.CODEGRAPH_CACHE_DIR?.trim() || join(homedir(), ".codegraph");
+
+  return join(baseDir, UPDATE_CACHE_FILENAME);
 }
 
 function parseVersion(value: string): number[] | null {
@@ -66,16 +73,26 @@ async function readPackageMetadata(): Promise<PackageMetadata | null> {
 
 async function readCache(): Promise<UpdateCache | null> {
   try {
-    const raw = await readFile(UPDATE_CACHE_PATH, "utf8");
+    const raw = await readFile(getUpdateCachePath(), "utf8");
     return JSON.parse(raw) as UpdateCache;
   } catch {
     return null;
   }
 }
 
-async function writeCache(value: UpdateCache): Promise<void> {
-  await mkdir(dirname(UPDATE_CACHE_PATH), { recursive: true });
-  await writeFile(UPDATE_CACHE_PATH, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+export async function writeUpdateCache(value: {
+  checkedAt: string;
+  latestVersion: string | null;
+  packageName: string;
+}): Promise<void> {
+  try {
+    const cachePath = getUpdateCachePath();
+
+    await mkdir(dirname(cachePath), { recursive: true });
+    await writeFile(cachePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  } catch {
+    // Cache writes are best-effort and should not block successful commands.
+  }
 }
 
 async function fetchLatestVersion(packageName: string): Promise<string | null> {
@@ -133,7 +150,7 @@ export async function getUpgradeNotice(): Promise<string | null> {
   if (!cacheIsFresh) {
     latestVersion = await fetchLatestVersion(packageName);
 
-    await writeCache({
+    await writeUpdateCache({
       checkedAt: new Date(now).toISOString(),
       latestVersion,
       packageName,
