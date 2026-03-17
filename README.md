@@ -12,6 +12,7 @@ For a persistent local view, `codegraph --dashboard` starts a live dashboard tha
 - Codex
 - Claude Code
 - Vibe
+- Grok Code
 - merged `all` view across all detected providers
 
 By default, `codegraph` runs with `--provider all`.
@@ -99,6 +100,12 @@ Generate Vibe-only output:
 codegraph --provider vibe
 ```
 
+Generate Grok-only output:
+
+```bash
+codegraph --provider grok
+```
+
 Generate JSON instead of the default PNG:
 
 ```bash
@@ -126,8 +133,8 @@ codegraph --help
 ## CLI reference
 
 ```bash
-codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|vibe|all] [--format svg|png|json] [--output PATH]
-codegraph --dashboard [--ytd | --last-365 | --year YYYY] [--provider codex|claude|vibe|all] [--host HOST] [--port PORT] [--refresh-minutes MINUTES]
+codegraph [--ytd | --last-365 | --year YYYY] [--provider codex|claude|vibe|grok|all] [--format svg|png|json] [--output PATH]
+codegraph --dashboard [--ytd | --last-365 | --year YYYY] [--provider codex|claude|vibe|grok|all] [--host HOST] [--port PORT] [--refresh-minutes MINUTES]
 ```
 
 Options:
@@ -138,7 +145,7 @@ Options:
   Render a rolling 365-day window through today.
 - `--year YYYY`
   Render a specific calendar year.
-- `--provider codex|claude|vibe|all`
+- `--provider codex|claude|vibe|grok|all`
   Choose a single provider or merge all available providers. Default is `all`.
 - `--dashboard`
   Start a persistent local dashboard server instead of writing a file.
@@ -158,6 +165,8 @@ Options:
   Override the Claude config directory.
 - `--vibe-home PATH`
   Override the Vibe home directory.
+- `--grok-home PATH`
+  Override the Grok Code home directory.
 - `--help`
   Print usage information.
 
@@ -178,7 +187,7 @@ Behavior:
 - the browser view auto-refreshes every 5 minutes by default
 - the server also refreshes its in-memory snapshot on the same cadence
 - `Refresh now` forces an immediate reload without restarting the process
-- `/api/dashboard` exposes the current dashboard state as JSON for local integrations
+- `/api/dashboard` exposes JSON with `refreshError`, `refreshIntervalMs`, and a `snapshot` payload for local integrations
 
 ## Default output files
 
@@ -201,6 +210,7 @@ Single-provider output adds the provider suffix:
 - `codegraph-ytd-claude.png`
 - `codegraph-ytd-claude.svg`
 - `codegraph-ytd-vibe.png`
+- `codegraph-ytd-grok.png`
 - `codegraph-last-365-codex.json`
 - `codegraph-2025-claude.png`
 - `codegraph-2025-claude.svg`
@@ -252,6 +262,19 @@ You can override that root with:
 
 ```bash
 codegraph --provider vibe --vibe-home /path/to/.vibe
+```
+
+### Grok Code
+
+`codegraph` reads Grok Code session files from:
+
+- `$GROK_HOME/sessions`
+- `~/.grok-code/sessions`
+
+You can override that root with:
+
+```bash
+codegraph --provider grok --grok-home /path/to/.grok-code
 ```
 
 ## Aggregation behavior
@@ -315,7 +338,7 @@ When `--provider all` is used:
 
 Pricing data is resolved in this order:
 
-- bundled prices in the codebase for common Codex, Claude, and Vibe models
+- bundled prices in the codebase for common supported models
 - cached LiteLLM pricing in `~/.codegraph/litellm-pricing.json`
 - LiteLLM's published model cost map only when a model is still unknown
 
@@ -325,6 +348,7 @@ The JSON export contains:
 
 - `version`
 - `generatedAt`
+- `spend`
 - `summary.provider`
 - `summary.start`
 - `summary.end`
@@ -341,6 +365,14 @@ The JSON export contains:
 - `latestModel`
   This retains the raw timestamped latest-model record used to derive recency.
 - `streaks`
+
+`spend` includes:
+
+- `totalUsd`
+- `pricedModels`
+- `unpricedModels[]`
+
+If `unpricedModels` is non-empty, `totalUsd` reflects only the models with resolved pricing.
 
 Each daily row contains:
 

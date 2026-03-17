@@ -9,14 +9,13 @@ import {
 } from "./codegraph.ts";
 import { startDashboardServer } from "./dashboard.ts";
 import { renderHeatmapPng, renderHeatmapSvg } from "./heatmap.ts";
+import { buildJsonExport } from "./json-export.ts";
 import { estimateUsageSpend } from "./pricing.ts";
 import { getUpgradeNotice } from "./update.ts";
 import {
   ensureParentDirectory,
   inferFormat,
 } from "./utils.ts";
-
-const JSON_EXPORT_VERSION = "0.2.0";
 
 const HELP_TEXT = `codegraph
 
@@ -196,20 +195,12 @@ async function main(): Promise<void> {
   );
 
   await ensureParentDirectory(outputPath);
-  const spend = format === "json" ? null : await estimateUsageSpend(summary);
+  const spend = await estimateUsageSpend(summary);
 
   if (format === "json") {
     await writeFile(
       outputPath,
-      `${JSON.stringify(
-        {
-          version: JSON_EXPORT_VERSION,
-          generatedAt: new Date().toISOString(),
-          summary,
-        },
-        null,
-        2,
-      )}\n`,
+      `${JSON.stringify(buildJsonExport(summary, spend), null, 2)}\n`,
       "utf8",
     );
   } else if (format === "png") {
