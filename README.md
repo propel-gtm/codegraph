@@ -130,6 +130,41 @@ Show help:
 codegraph --help
 ```
 
+## Fixture-backed example
+
+This repository includes a small checked-in fixture bundle under
+`test/fixtures` plus a normalized example export at
+`examples/fixture-export-all.json`.
+
+The smoke test loads those fixtures through the same public summary and JSON
+export APIs the CLI uses, then validates the checked-in example file
+byte-for-byte after normalizing machine-specific fields such as absolute
+fixture paths and local timestamp formatting.
+
+Excerpt:
+
+```json
+{
+  "version": "0.3.0",
+  "generatedAt": "2026-03-05T00:00:00.000Z",
+  "summary": {
+    "provider": {
+      "id": "all",
+      "title": "Codex + Claude Code + Vibe + Grok Code"
+    },
+    "metrics": {
+      "input": 410,
+      "output": 135,
+      "total": 545
+    }
+  },
+  "spend": null
+}
+```
+
+The checked-in example keeps `spend` as `null` so it stays deterministic
+without depending on cached or fetched pricing data.
+
 ## CLI reference
 
 ```bash

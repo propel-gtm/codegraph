@@ -1,0 +1,444 @@
+{
+  "version": "0.3.0",
+  "generatedAt": "2026-03-05T00:00:00.000Z",
+  "summary": {
+    "provider": {
+      "id": "all",
+      "title": "Codex + Claude Code + Vibe + Grok Code"
+    },
+    "start": "2026-03-01",
+    "end": "2026-03-04",
+    "daily": [
+      {
+        "date": "2026-03-01",
+        "input": 120,
+        "output": 30,
+        "cache": {
+          "input": 30,
+          "output": 0
+        },
+        "total": 150,
+        "breakdown": [
+          {
+            "name": "gpt-5.4",
+            "tokens": {
+              "input": 120,
+              "output": 30,
+              "cache": {
+                "input": 30,
+                "output": 0
+              },
+              "total": 150
+            }
+          }
+        ]
+      },
+      {
+        "date": "2026-03-02",
+        "input": 100,
+        "output": 35,
+        "cache": {
+          "input": 10,
+          "output": 5
+        },
+        "total": 135,
+        "breakdown": [
+          {
+            "name": "claude-sonnet-4-5",
+            "tokens": {
+              "input": 100,
+              "output": 35,
+              "cache": {
+                "input": 10,
+                "output": 5
+              },
+              "total": 135
+            }
+          }
+        ]
+      },
+      {
+        "date": "2026-03-03",
+        "input": 100,
+        "output": 40,
+        "cache": {
+          "input": 10,
+          "output": 0
+        },
+        "total": 140,
+        "breakdown": [
+          {
+            "name": "devstral-2",
+            "tokens": {
+              "input": 60,
+              "output": 20,
+              "cache": {
+                "input": 0,
+                "output": 0
+              },
+              "total": 80
+            }
+          },
+          {
+            "name": "gpt-5-codex",
+            "tokens": {
+              "input": 40,
+              "output": 20,
+              "cache": {
+                "input": 10,
+                "output": 0
+              },
+              "total": 60
+            }
+          }
+        ]
+      },
+      {
+        "date": "2026-03-04",
+        "input": 90,
+        "output": 30,
+        "cache": {
+          "input": 0,
+          "output": 0
+        },
+        "total": 120,
+        "breakdown": [
+          {
+            "name": "grok-code-fast",
+            "tokens": {
+              "input": 50,
+              "output": 10,
+              "cache": {
+                "input": 0,
+                "output": 0
+              },
+              "total": 60
+            }
+          },
+          {
+            "name": "claude-opus-4-1",
+            "tokens": {
+              "input": 20,
+              "output": 10,
+              "cache": {
+                "input": 0,
+                "output": 0
+              },
+              "total": 30
+            }
+          },
+          {
+            "name": "grok-code-smart",
+            "tokens": {
+              "input": 20,
+              "output": 10,
+              "cache": {
+                "input": 0,
+                "output": 0
+              },
+              "total": 30
+            }
+          }
+        ]
+      }
+    ],
+    "breakdown": {
+      "models": [
+        {
+          "name": "gpt-5.4",
+          "tokens": {
+            "input": 120,
+            "output": 30,
+            "cache": {
+              "input": 30,
+              "output": 0
+            },
+            "total": 150
+          }
+        },
+        {
+          "name": "claude-sonnet-4-5",
+          "tokens": {
+            "input": 100,
+            "output": 35,
+            "cache": {
+              "input": 10,
+              "output": 5
+            },
+            "total": 135
+          }
+        },
+        {
+          "name": "devstral-2",
+          "tokens": {
+            "input": 60,
+            "output": 20,
+            "cache": {
+              "input": 0,
+              "output": 0
+            },
+            "total": 80
+          }
+        },
+        {
+          "name": "gpt-5-codex",
+          "tokens": {
+            "input": 40,
+            "output": 20,
+            "cache": {
+              "input": 10,
+              "output": 0
+            },
+            "total": 60
+          }
+        },
+        {
+          "name": "grok-code-fast",
+          "tokens": {
+            "input": 50,
+            "output": 10,
+            "cache": {
+              "input": 0,
+              "output": 0
+            },
+            "total": 60
+          }
+        },
+        {
+          "name": "claude-opus-4-1",
+          "tokens": {
+            "input": 20,
+            "output": 10,
+            "cache": {
+              "input": 0,
+              "output": 0
+            },
+            "total": 30
+          }
+        },
+        {
+          "name": "grok-code-smart",
+          "tokens": {
+            "input": 20,
+            "output": 10,
+            "cache": {
+              "input": 0,
+              "output": 0
+            },
+            "total": 30
+          }
+        }
+      ],
+      "providers": [
+        {
+          "provider": {
+            "id": "codex",
+            "title": "Codex"
+          },
+          "tokens": {
+            "input": 160,
+            "output": 50,
+            "cache": {
+              "input": 40,
+              "output": 0
+            },
+            "total": 210
+          },
+          "models": [
+            {
+              "name": "gpt-5.4",
+              "tokens": {
+                "input": 120,
+                "output": 30,
+                "cache": {
+                  "input": 30,
+                  "output": 0
+                },
+                "total": 150
+              }
+            },
+            {
+              "name": "gpt-5-codex",
+              "tokens": {
+                "input": 40,
+                "output": 20,
+                "cache": {
+                  "input": 10,
+                  "output": 0
+                },
+                "total": 60
+              }
+            }
+          ]
+        },
+        {
+          "provider": {
+            "id": "claude",
+            "title": "Claude Code"
+          },
+          "tokens": {
+            "input": 120,
+            "output": 45,
+            "cache": {
+              "input": 10,
+              "output": 5
+            },
+            "total": 165
+          },
+          "models": [
+            {
+              "name": "claude-sonnet-4-5",
+              "tokens": {
+                "input": 100,
+                "output": 35,
+                "cache": {
+                  "input": 10,
+                  "output": 5
+                },
+                "total": 135
+              }
+            },
+            {
+              "name": "claude-opus-4-1",
+              "tokens": {
+                "input": 20,
+                "output": 10,
+                "cache": {
+                  "input": 0,
+                  "output": 0
+                },
+                "total": 30
+              }
+            }
+          ]
+        },
+        {
+          "provider": {
+            "id": "grok",
+            "title": "Grok Code"
+          },
+          "tokens": {
+            "input": 70,
+            "output": 20,
+            "cache": {
+              "input": 0,
+              "output": 0
+            },
+            "total": 90
+          },
+          "models": [
+            {
+              "name": "grok-code-fast",
+              "tokens": {
+                "input": 50,
+                "output": 10,
+                "cache": {
+                  "input": 0,
+                  "output": 0
+                },
+                "total": 60
+              }
+            },
+            {
+              "name": "grok-code-smart",
+              "tokens": {
+                "input": 20,
+                "output": 10,
+                "cache": {
+                  "input": 0,
+                  "output": 0
+                },
+                "total": 30
+              }
+            }
+          ]
+        },
+        {
+          "provider": {
+            "id": "vibe",
+            "title": "Vibe"
+          },
+          "tokens": {
+            "input": 60,
+            "output": 20,
+            "cache": {
+              "input": 0,
+              "output": 0
+            },
+            "total": 80
+          },
+          "models": [
+            {
+              "name": "devstral-2",
+              "tokens": {
+                "input": 60,
+                "output": 20,
+                "cache": {
+                  "input": 0,
+                  "output": 0
+                },
+                "total": 80
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "metrics": {
+      "last30Days": 545,
+      "input": 410,
+      "output": 135,
+      "total": 545
+    },
+    "insights": {
+      "streaks": {
+        "longest": 4,
+        "current": 4
+      },
+      "mostUsedModel": {
+        "name": "gpt-5.4",
+        "tokens": {
+          "input": 120,
+          "output": 30,
+          "cache": {
+            "input": 30,
+            "output": 0
+          },
+          "total": 150
+        }
+      },
+      "recentMostUsedModel": {
+        "name": "grok-code-smart",
+        "tokens": {
+          "input": 20,
+          "output": 10,
+          "cache": {
+            "input": 0,
+            "output": 0
+          },
+          "total": 30
+        }
+      },
+      "latestModel": {
+        "name": "grok-code-smart",
+        "lastUsedAt": "2026-03-04T16:10:00"
+      }
+    },
+    "stats": {
+      "sourceLabel": "Codex + Claude Code + Vibe + Grok Code",
+      "sourcePaths": [
+        "test/fixtures/codex-home/sessions",
+        "test/fixtures/claude-home/projects",
+        "test/fixtures/claude-home/usage-data/session-meta",
+        "test/fixtures/vibe-home/logs/session",
+        "test/fixtures/grok-home/sessions"
+      ],
+      "filesScanned": 5,
+      "filesFailed": 0,
+      "linesScanned": 13,
+      "badLines": 0,
+      "eventsConsumed": 7
+    }
+  },
+  "spend": null
+}
