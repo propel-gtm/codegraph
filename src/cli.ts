@@ -15,6 +15,7 @@ import { estimateUsageSpend } from "./pricing.ts";
 import { getUpgradeNotice } from "./update.ts";
 import {
   ensureParentDirectory,
+  extractRollingWindowArgs,
   inferFormat,
 } from "./utils.ts";
 
@@ -65,7 +66,9 @@ function parseRefreshMinutes(value?: string): number {
 }
 
 async function main(): Promise<void> {
+  const { normalizedArgs, lastDays } = extractRollingWindowArgs(process.argv.slice(2));
   const { values } = parseArgs({
+    args: normalizedArgs,
     options: {
       format: { type: "string", short: "f" },
       output: { type: "string", short: "o" },
@@ -75,7 +78,6 @@ async function main(): Promise<void> {
       port: { type: "string" },
       "refresh-minutes": { type: "string" },
       ytd: { type: "boolean" },
-      "last-365": { type: "boolean" },
       year: { type: "string" },
       "codex-home": { type: "string" },
       "claude-config-dir": { type: "string" },
@@ -91,11 +93,16 @@ async function main(): Promise<void> {
     return;
   }
 
-  const selectedModes = [values.ytd, values["last-365"], Boolean(values.year)]
-    .filter(Boolean).length;
+  const selectedModes = [
+    values.ytd,
+    lastDays !== undefined,
+    Boolean(values.year),
+  ].filter(Boolean).length;
 
   if (selectedModes > 1) {
-    throw new Error("Use only one date mode: --ytd, --last-365, or --year.");
+    throw new Error(
+      "Use only one date mode: --ytd, --last-N, or --year.",
+    );
   }
 
   if (values.dashboard && (values.format || values.output)) {
@@ -105,8 +112,7 @@ async function main(): Promise<void> {
   const provider = parseProvider(values.provider);
   const format = inferFormat(values.format, values.output);
   const selectedYear = parseYear(values.year);
-  const isLast365 = values["last-365"] === true;
-  const { start, end, label } = resolveDateSelection(selectedYear, isLast365);
+  const { start, end, label } = resolveDateSelection(selectedYear, lastDays);
 
   if (values.dashboard) {
     const refreshMinutes = parseRefreshMinutes(values["refresh-minutes"]);

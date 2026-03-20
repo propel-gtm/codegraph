@@ -181,6 +181,79 @@ export function inferFormat(
   return "png";
 }
 
+export function extractRollingWindowArgs(
+  args: string[],
+): { normalizedArgs: string[]; lastDays?: number } {
+  const stringOptions = new Set([
+    "--format",
+    "--output",
+    "--provider",
+    "--host",
+    "--port",
+    "--refresh-minutes",
+    "--year",
+    "--codex-home",
+    "--claude-config-dir",
+    "--vibe-home",
+    "--grok-home",
+    "-f",
+    "-o",
+  ]);
+  const normalizedArgs: string[] = [];
+  let lastDays: number | undefined;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === undefined) {
+      continue;
+    }
+
+    if (arg === "--") {
+      normalizedArgs.push(...args.slice(index));
+      break;
+    }
+
+    if (stringOptions.has(arg)) {
+      normalizedArgs.push(arg);
+
+      const nextArg = args[index + 1];
+
+      if (nextArg !== undefined) {
+        normalizedArgs.push(nextArg);
+        index += 1;
+      }
+
+      continue;
+    }
+
+    const match = /^--last-(\d+)$/.exec(arg);
+
+    if (!match) {
+      normalizedArgs.push(arg);
+      continue;
+    }
+
+    if (lastDays !== undefined) {
+      throw new Error("Use only one rolling window option in the form --last-N.");
+    }
+
+    const dayCount = match[1];
+
+    if (dayCount === undefined) {
+      throw new Error("--last-N must use a positive integer, for example --last-30.");
+    }
+
+    lastDays = Number.parseInt(dayCount, 10);
+
+    if (!Number.isInteger(lastDays) || lastDays <= 0) {
+      throw new Error("--last-N must use a positive integer, for example --last-30.");
+    }
+  }
+
+  return lastDays === undefined ? { normalizedArgs } : { normalizedArgs, lastDays };
+}
+
 export function getYtdDates(): { start: Date; end: Date } {
   const end = new Date();
   const start = new Date(end);
@@ -192,13 +265,17 @@ export function getYtdDates(): { start: Date; end: Date } {
   return { start, end };
 }
 
-export function getLast365DaysDates(): { start: Date; end: Date } {
+export function getLastNDaysDates(days: number): { start: Date; end: Date } {
+  if (!Number.isInteger(days) || days <= 0) {
+    throw new Error("Rolling window days must be a positive integer.");
+  }
+
   const end = new Date();
   const start = new Date(end);
 
   end.setHours(23, 59, 59, 999);
   start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - 364);
+  start.setDate(start.getDate() - (days - 1));
 
   return { start, end };
 }

@@ -6,7 +6,7 @@ import { mergeUsageSummaries } from "./summary.ts";
 import type { OutputFormat, ProviderId, UsageSummary } from "./types.ts";
 import {
   getCalendarYearDates,
-  getLast365DaysDates,
+  getLastNDaysDates,
   getYtdDates,
 } from "./utils.ts";
 
@@ -28,28 +28,28 @@ export function parseProvider(value?: string): ProviderId {
   throw new Error(`Unsupported provider "${value}". Use codex, claude, vibe, grok, or all.`);
 }
 
-function getDefaultLabel(year?: number, isLast365 = false): string {
+function getDefaultLabel(year?: number, lastDays?: number): string {
   if (year !== undefined) {
     return String(year);
   }
 
-  return isLast365 ? "last-365" : "ytd";
+  return lastDays !== undefined ? `last-${lastDays}` : "ytd";
 }
 
 export function resolveDateSelection(
   selectedYear?: number,
-  isLast365 = false,
+  lastDays?: number,
 ): DateSelection {
   const { start, end } =
     selectedYear !== undefined
       ? getCalendarYearDates(selectedYear)
-      : isLast365
-        ? getLast365DaysDates()
+      : lastDays !== undefined
+        ? getLastNDaysDates(lastDays)
         : getYtdDates();
 
   return {
     end,
-    label: getDefaultLabel(selectedYear, isLast365),
+    label: getDefaultLabel(selectedYear, lastDays),
     start,
   };
 }
