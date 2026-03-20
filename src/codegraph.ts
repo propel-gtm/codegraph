@@ -6,6 +6,7 @@ import { mergeUsageSummaries } from "./summary.ts";
 import type { OutputFormat, ProviderId, UsageSummary } from "./types.ts";
 import {
   getCalendarYearDates,
+  getCustomDateRangeDates,
   getLastNDaysDates,
   getYtdDates,
 } from "./utils.ts";
@@ -14,6 +15,13 @@ export interface DateSelection {
   end: Date;
   label: string;
   start: Date;
+}
+
+export interface ResolveDateSelectionOptions {
+  endDate?: string;
+  lastDays?: number;
+  selectedYear?: number;
+  startDate?: string;
 }
 
 export const PROVIDERS: ProviderId[] = ["codex", "claude", "vibe", "grok", "all"];
@@ -28,19 +36,41 @@ export function parseProvider(value?: string): ProviderId {
   throw new Error(`Unsupported provider "${value}". Use codex, claude, vibe, grok, or all.`);
 }
 
-function getDefaultLabel(year?: number, lastDays?: number): string {
-  if (year !== undefined) {
-    return String(year);
+function getDefaultLabel({
+  selectedYear,
+  lastDays,
+  startDate,
+  endDate,
+}: ResolveDateSelectionOptions): string {
+  if (selectedYear !== undefined) {
+    return String(selectedYear);
+  }
+
+  if (startDate !== undefined && endDate !== undefined) {
+    return `${startDate}-to-${endDate}`;
   }
 
   return lastDays !== undefined ? `last-${lastDays}` : "ytd";
 }
 
 export function resolveDateSelection(
-  selectedYear?: number,
-  lastDays?: number,
+  options: ResolveDateSelectionOptions = {},
 ): DateSelection {
+  const {
+    selectedYear,
+    lastDays,
+    startDate,
+    endDate,
+  } = options;
+
+  if ((startDate === undefined) !== (endDate === undefined)) {
+    throw new Error("Use both --start-date and --end-date together.");
+  }
+
   const { start, end } =
+    startDate !== undefined && endDate !== undefined
+      ? getCustomDateRangeDates(startDate, endDate)
+      :
     selectedYear !== undefined
       ? getCalendarYearDates(selectedYear)
       : lastDays !== undefined
@@ -49,7 +79,7 @@ export function resolveDateSelection(
 
   return {
     end,
-    label: getDefaultLabel(selectedYear, lastDays),
+    label: getDefaultLabel(options),
     start,
   };
 }

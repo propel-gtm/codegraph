@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildDateRange,
   extractRollingWindowArgs,
+  getCustomDateRangeDates,
   getLastNDaysDates,
   inferFormat,
 } from "../src/utils.ts";
@@ -38,6 +39,28 @@ test("getLastNDaysDates rejects invalid day counts", () => {
   );
 });
 
+test("getCustomDateRangeDates returns inclusive local day boundaries", () => {
+  const { start, end } = getCustomDateRangeDates("2026-02-18", "2026-03-20");
+
+  assert.equal(buildDateRange(start, end).length, 31);
+  assert.equal(start.getHours(), 0);
+  assert.equal(start.getMinutes(), 0);
+  assert.equal(end.getHours(), 23);
+  assert.equal(end.getMinutes(), 59);
+  assert.equal(end >= start, true);
+});
+
+test("getCustomDateRangeDates rejects invalid or reversed dates", () => {
+  assert.throws(
+    () => getCustomDateRangeDates("2026-02-30", "2026-03-20"),
+    /--start-date must be a valid date in YYYY-MM-DD format\./,
+  );
+  assert.throws(
+    () => getCustomDateRangeDates("2026-03-20", "2026-02-18"),
+    /--end-date must be on or after --start-date\./,
+  );
+});
+
 test("extractRollingWindowArgs supports generic --last-N flags", () => {
   assert.deepEqual(
     extractRollingWindowArgs(["--provider", "all", "--last-30"]),
@@ -67,6 +90,13 @@ test("extractRollingWindowArgs preserves string option values that look like rol
     extractRollingWindowArgs(["-o", "--last-30"]),
     {
       normalizedArgs: ["-o", "--last-30"],
+    },
+  );
+  assert.deepEqual(
+    extractRollingWindowArgs(["--start-date", "--last-30", "--last-365"]),
+    {
+      normalizedArgs: ["--start-date", "--last-30"],
+      lastDays: 365,
     },
   );
 });
