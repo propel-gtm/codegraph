@@ -15,6 +15,8 @@ test("HELP_TEXT lists every supported provider and key CLI flags", () => {
     HELP_TEXT,
     /Provider selection: codex\|claude\|vibe\|grok\|all/,
   );
+  assert.match(HELP_TEXT, /--last-N/);
+  assert.match(HELP_TEXT, /--last-365/);
   assert.match(HELP_TEXT, /--dashboard/);
   assert.match(HELP_TEXT, /--claude-config-dir/);
   assert.match(HELP_TEXT, /--grok-home/);

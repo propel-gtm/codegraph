@@ -7,8 +7,8 @@ export const HELP_TEXT = `codegraph
 Generate a local AI coding usage heatmap from Codex, Claude Code, Vibe, and Grok Code session files.
 
 Usage:
-  codegraph [--ytd | --last-365 | --year YYYY] [--provider ${providerOptionList}] [--format svg|png|json] [--output ./codegraph-ytd.png]
-  codegraph --dashboard [--ytd | --last-365 | --year YYYY] [--provider ${providerOptionList}] [--port 4269] [--refresh-minutes 5]
+  codegraph [--ytd | --last-N | --year YYYY] [--provider ${providerOptionList}] [--format svg|png|json] [--output ./codegraph-ytd.png]
+  codegraph --dashboard [--ytd | --last-N | --year YYYY] [--provider ${providerOptionList}] [--port 4269] [--refresh-minutes 5]
 
 Options:
   --format, -f              Output format: svg, png, or json
@@ -19,7 +19,7 @@ Options:
   --port                    Dashboard port (default: 4269)
   --refresh-minutes         Dashboard refresh cadence in minutes (default: 5)
   --ytd                     Render from January 1 of the current year through today
-  --last-365                Render the last 365 days through today
+  --last-N                  Render a rolling N-day window through today (for example: --last-365)
   --year                    Render a calendar year (for example: --year 2025)
   --codex-home              Override the Codex home directory
   --claude-config-dir       Override the Claude config directory
