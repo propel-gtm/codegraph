@@ -82,6 +82,12 @@ Generate a rolling last-30-day PNG:
 codegraph --last-30
 ```
 
+Generate a custom date-range PNG:
+
+```bash
+codegraph --start-date 2026-02-18 --end-date 2026-03-20
+```
+
 Generate a specific calendar year:
 
 ```bash
@@ -174,8 +180,8 @@ without depending on cached or fetched pricing data.
 ## CLI reference
 
 ```bash
-codegraph [--ytd | --last-N | --year YYYY] [--provider codex|claude|vibe|grok|all] [--format svg|png|json] [--output PATH]
-codegraph --dashboard [--ytd | --last-N | --year YYYY] [--provider codex|claude|vibe|grok|all] [--host HOST] [--port PORT] [--refresh-minutes MINUTES]
+codegraph [--ytd | --last-N | --year YYYY | --start-date YYYY-MM-DD --end-date YYYY-MM-DD] [--provider codex|claude|vibe|grok|all] [--format svg|png|json] [--output PATH]
+codegraph --dashboard [--ytd | --last-N | --year YYYY | --start-date YYYY-MM-DD --end-date YYYY-MM-DD] [--provider codex|claude|vibe|grok|all] [--host HOST] [--port PORT] [--refresh-minutes MINUTES]
 ```
 
 Options:
@@ -186,6 +192,10 @@ Options:
   Render a rolling `N`-day window through today. Examples: `--last-30`, `--last-365`.
 - `--year YYYY`
   Render a specific calendar year.
+- `--start-date YYYY-MM-DD`
+  Render from an explicit start date. Requires `--end-date`.
+- `--end-date YYYY-MM-DD`
+  Render through an explicit end date. Requires `--start-date`.
 - `--provider codex|claude|vibe|grok|all`
   Choose a single provider or merge all available providers. Default is `all`.
 - `--dashboard`
@@ -214,7 +224,8 @@ Options:
 Rules:
 
 - If no date mode is passed, `codegraph` defaults to YTD.
-- `--ytd`, `--last-N`, and `--year` are mutually exclusive.
+- `--ytd`, `--last-N`, `--year`, and explicit `--start-date` + `--end-date` ranges are mutually exclusive.
+- `--start-date` and `--end-date` must be passed together.
 - `--dashboard` cannot be combined with `--format` or `--output`.
 - If `--year` is the current year, the end date is clamped to today instead of rendering future empty days.
 - Default output names depend on both the date window and provider.
@@ -240,6 +251,7 @@ Merged `all` output:
 - `codegraph-last-30.png`
 - `codegraph-last-30.svg`
 - `codegraph-last-30.json`
+- `codegraph-2026-02-18-to-2026-03-20.png`
 - `codegraph-last-365.png`
 - `codegraph-last-365.svg`
 - `codegraph-last-365.json`
@@ -254,6 +266,7 @@ Single-provider output adds the provider suffix:
 - `codegraph-ytd-claude.png`
 - `codegraph-ytd-claude.svg`
 - `codegraph-last-30-codex.json`
+- `codegraph-2026-02-18-to-2026-03-20-codex.json`
 - `codegraph-ytd-vibe.png`
 - `codegraph-ytd-grok.png`
 - `codegraph-last-365-codex.json`

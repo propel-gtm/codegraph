@@ -35,7 +35,16 @@ test("default output naming remains stable for merged and single-provider output
 });
 
 test("resolveDateSelection uses generic rolling day labels", () => {
-  const { label } = resolveDateSelection(undefined, 30);
+  const { label } = resolveDateSelection({ lastDays: 30 });
 
   assert.equal(label, "last-30");
+});
+
+test("resolveDateSelection uses explicit date range labels", () => {
+  const { label } = resolveDateSelection({
+    startDate: "2026-02-01",
+    endDate: "2026-02-28",
+  });
+
+  assert.equal(label, "2026-02-01-to-2026-02-28");
 });
