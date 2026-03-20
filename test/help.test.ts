@@ -17,6 +17,8 @@ test("HELP_TEXT lists every supported provider and key CLI flags", () => {
   );
   assert.match(HELP_TEXT, /--last-N/);
   assert.match(HELP_TEXT, /--last-365/);
+  assert.match(HELP_TEXT, /--start-date/);
+  assert.match(HELP_TEXT, /--end-date/);
   assert.match(HELP_TEXT, /--dashboard/);
   assert.match(HELP_TEXT, /--claude-config-dir/);
   assert.match(HELP_TEXT, /--grok-home/);

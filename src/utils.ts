@@ -192,6 +192,8 @@ export function extractRollingWindowArgs(
     "--port",
     "--refresh-minutes",
     "--year",
+    "--start-date",
+    "--end-date",
     "--codex-home",
     "--claude-config-dir",
     "--vibe-home",
@@ -254,6 +256,20 @@ export function extractRollingWindowArgs(
   return lastDays === undefined ? { normalizedArgs } : { normalizedArgs, lastDays };
 }
 
+function parseLocalDateArg(value: string, flagName: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`${flagName} must be a valid date in YYYY-MM-DD format.`);
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+
+  if (Number.isNaN(date.getTime()) || formatLocalDate(date) !== value) {
+    throw new Error(`${flagName} must be a valid date in YYYY-MM-DD format.`);
+  }
+
+  return date;
+}
+
 export function getYtdDates(): { start: Date; end: Date } {
   const end = new Date();
   const start = new Date(end);
@@ -261,6 +277,23 @@ export function getYtdDates(): { start: Date; end: Date } {
   end.setHours(23, 59, 59, 999);
   start.setMonth(0, 1);
   start.setHours(0, 0, 0, 0);
+
+  return { start, end };
+}
+
+export function getCustomDateRangeDates(
+  startDateValue: string,
+  endDateValue: string,
+): { start: Date; end: Date } {
+  const start = parseLocalDateArg(startDateValue, "--start-date");
+  const end = parseLocalDateArg(endDateValue, "--end-date");
+
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+
+  if (end < start) {
+    throw new Error("--end-date must be on or after --start-date.");
+  }
 
   return { start, end };
 }

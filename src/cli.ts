@@ -79,6 +79,8 @@ async function main(): Promise<void> {
       "refresh-minutes": { type: "string" },
       ytd: { type: "boolean" },
       year: { type: "string" },
+      "start-date": { type: "string" },
+      "end-date": { type: "string" },
       "codex-home": { type: "string" },
       "claude-config-dir": { type: "string" },
       "vibe-home": { type: "string" },
@@ -93,15 +95,25 @@ async function main(): Promise<void> {
     return;
   }
 
+  const hasCustomRangeStart = values["start-date"] !== undefined;
+  const hasCustomRangeEnd = values["end-date"] !== undefined;
+
+  if (hasCustomRangeStart !== hasCustomRangeEnd) {
+    throw new Error("Use both --start-date and --end-date together.");
+  }
+
+  const hasCustomRange = hasCustomRangeStart && hasCustomRangeEnd;
+
   const selectedModes = [
     values.ytd,
     lastDays !== undefined,
     Boolean(values.year),
+    hasCustomRange,
   ].filter(Boolean).length;
 
   if (selectedModes > 1) {
     throw new Error(
-      "Use only one date mode: --ytd, --last-N, or --year.",
+      "Use only one date mode: --ytd, --last-N, --year, or --start-date with --end-date.",
     );
   }
 
@@ -112,7 +124,13 @@ async function main(): Promise<void> {
   const provider = parseProvider(values.provider);
   const format = inferFormat(values.format, values.output);
   const selectedYear = parseYear(values.year);
-  const { start, end, label } = resolveDateSelection(selectedYear, lastDays);
+  const dateSelectionOptions = {
+    ...(selectedYear === undefined ? {} : { selectedYear }),
+    ...(lastDays === undefined ? {} : { lastDays }),
+    ...(values["start-date"] === undefined ? {} : { startDate: values["start-date"] }),
+    ...(values["end-date"] === undefined ? {} : { endDate: values["end-date"] }),
+  };
+  const { start, end, label } = resolveDateSelection(dateSelectionOptions);
 
   if (values.dashboard) {
     const refreshMinutes = parseRefreshMinutes(values["refresh-minutes"]);
