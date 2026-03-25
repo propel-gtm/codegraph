@@ -5,22 +5,24 @@ import { HELP_TEXT } from "../src/help.ts";
 test("HELP_TEXT lists every supported provider and key CLI flags", () => {
   assert.match(
     HELP_TEXT,
-    /Generate a local AI coding usage heatmap from Codex, Claude Code, Vibe, and Grok Code session files\./,
+    /Generate a local AI coding usage heatmap from Codex, Claude Code, Vibe, Grok Code, and Propel Code session files\./,
   );
   assert.match(
     HELP_TEXT,
-    /\[--provider codex\|claude\|vibe\|grok\|all\]/,
+    /\[--provider codex\|claude\|vibe\|grok\|propel\|all\]/,
   );
   assert.match(
     HELP_TEXT,
-    /Provider selection: codex\|claude\|vibe\|grok\|all/,
+    /Provider selection: codex\|claude\|vibe\|grok\|propel\|all/,
   );
   assert.match(HELP_TEXT, /--last-N/);
   assert.match(HELP_TEXT, /--last-365/);
   assert.match(HELP_TEXT, /--start-date/);
   assert.match(HELP_TEXT, /--end-date/);
   assert.match(HELP_TEXT, /--dashboard/);
+  assert.match(HELP_TEXT, /--last-30/);
   assert.match(HELP_TEXT, /--claude-config-dir/);
   assert.match(HELP_TEXT, /--grok-home/);
+  assert.match(HELP_TEXT, /--propel-home/);
   assert.match(HELP_TEXT, /--refresh-minutes/);
 });

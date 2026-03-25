@@ -198,6 +198,7 @@ export function extractRollingWindowArgs(
     "--claude-config-dir",
     "--vibe-home",
     "--grok-home",
+    "--propel-home",
     "-f",
     "-o",
   ]);
@@ -303,6 +304,10 @@ export function getLastNDaysDates(days: number): { start: Date; end: Date } {
     throw new Error("Rolling window days must be a positive integer.");
   }
 
+  return getTrailingDaysDates(days);
+}
+
+function getTrailingDaysDates(days: number): { start: Date; end: Date } {
   const end = new Date();
   const start = new Date(end);
 
@@ -311,6 +316,14 @@ export function getLastNDaysDates(days: number): { start: Date; end: Date } {
   start.setDate(start.getDate() - (days - 1));
 
   return { start, end };
+}
+
+export function getLast30DaysDates(): { start: Date; end: Date } {
+  return getTrailingDaysDates(30);
+}
+
+export function getLast365DaysDates(): { start: Date; end: Date } {
+  return getTrailingDaysDates(365);
 }
 
 export function getCalendarYearDates(

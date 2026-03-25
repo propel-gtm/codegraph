@@ -43,8 +43,10 @@ export interface DashboardServerOptions extends DateSelection {
   grokHome?: string;
   host: string;
   port: number;
+  propelHome?: string;
   provider: ProviderId;
   refreshIntervalMs: number;
+  resolveDateSelection?: () => DateSelection;
   vibeHome?: string;
 }
 
@@ -1086,17 +1088,19 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 </html>`;
 }
 
-async function generateSnapshot(
+export async function generateSnapshot(
   options: DashboardServerOptions,
 ): Promise<DashboardSnapshot> {
+  const selection = options.resolveDateSelection?.() ?? options;
   const summary = await loadRequestedSummaryOrThrow(
     options.provider,
-    options.start,
-    options.end,
+    selection.start,
+    selection.end,
     options.codexHome,
     options.claudeConfigDir,
     options.vibeHome,
     options.grokHome,
+    options.propelHome,
   );
   const spend = await estimateUsageSpend(summary);
 

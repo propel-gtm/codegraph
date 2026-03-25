@@ -85,6 +85,7 @@ async function main(): Promise<void> {
       "claude-config-dir": { type: "string" },
       "vibe-home": { type: "string" },
       "grok-home": { type: "string" },
+      "propel-home": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
     allowPositionals: false,
@@ -130,19 +131,19 @@ async function main(): Promise<void> {
     ...(values["start-date"] === undefined ? {} : { startDate: values["start-date"] }),
     ...(values["end-date"] === undefined ? {} : { endDate: values["end-date"] }),
   };
-  const { start, end, label } = resolveDateSelection(dateSelectionOptions);
+  const dateSelection = resolveDateSelection(dateSelectionOptions);
+  const { start, end, label } = dateSelection;
 
   if (values.dashboard) {
     const refreshMinutes = parseRefreshMinutes(values["refresh-minutes"]);
     const refreshIntervalMs = Math.round(refreshMinutes * 60_000);
     const handle = await startDashboardServer({
-      end,
+      ...dateSelection,
       host: values.host?.trim() || "127.0.0.1",
       port: parsePort(values.port),
       provider,
       refreshIntervalMs,
-      start,
-      label,
+      resolveDateSelection: () => resolveDateSelection(dateSelectionOptions),
       ...(values["claude-config-dir"]
         ? { claudeConfigDir: values["claude-config-dir"] }
         : {}),
@@ -154,6 +155,9 @@ async function main(): Promise<void> {
         : {}),
       ...(values["grok-home"]
         ? { grokHome: values["grok-home"] }
+        : {}),
+      ...(values["propel-home"]
+        ? { propelHome: values["propel-home"] }
         : {}),
     });
     const upgradeNotice = await getUpgradeNotice();
@@ -191,6 +195,7 @@ async function main(): Promise<void> {
     values["claude-config-dir"],
     values["vibe-home"],
     values["grok-home"],
+    values["propel-home"],
   );
 
   await ensureParentDirectory(outputPath);

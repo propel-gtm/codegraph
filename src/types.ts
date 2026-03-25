@@ -1,5 +1,5 @@
 export type OutputFormat = "svg" | "png" | "json";
-export type ProviderId = "codex" | "claude" | "vibe" | "grok" | "all";
+export type ProviderId = "codex" | "claude" | "vibe" | "grok" | "propel" | "all";
 
 export interface TokenTotals {
   input: number;
@@ -101,6 +101,12 @@ export interface LoadGrokUsageOptions {
   start: Date;
   end: Date;
   grokHome?: string;
+}
+
+export interface LoadPropelUsageOptions {
+  start: Date;
+  end: Date;
+  propelHome?: string;
 }
 
 export interface CodexRawUsage {

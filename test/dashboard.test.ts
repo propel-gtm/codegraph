@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import {
   buildDashboardSnapshot,
+  generateSnapshot,
   handleDashboardRequest,
   renderDashboardContent,
   renderDashboardHtml,
@@ -309,4 +313,105 @@ test("handleDashboardRequest serves dashboard routes from in-memory state", asyn
   };
 
   assert.equal(payload.snapshot.summary.provider.id, "codex");
+});
+
+test("generateSnapshot recalculates the dashboard date window", async () => {
+  const root = await mkdtemp(join(tmpdir(), "codegraph-dashboard-"));
+  const firstDayAtNoon = new Date(2026, 2, 1, 12, 0, 0, 0);
+  const secondDayAtNoon = new Date(2026, 2, 2, 12, 0, 0, 0);
+  const firstWindow = {
+    label: "ytd",
+    start: new Date(2026, 2, 1, 0, 0, 0, 0),
+    end: new Date(2026, 2, 1, 23, 59, 59, 999),
+  };
+  const secondWindow = {
+    label: "ytd",
+    start: new Date(2026, 2, 1, 0, 0, 0, 0),
+    end: new Date(2026, 2, 2, 23, 59, 59, 999),
+  };
+  let selection = firstWindow;
+
+  try {
+    await mkdir(join(root, "sessions", "2026", "03", "01"), { recursive: true });
+    await mkdir(join(root, "sessions", "2026", "03", "02"), { recursive: true });
+    await writeFile(
+      join(root, "sessions", "2026", "03", "01", "day-one.jsonl"),
+      [
+        JSON.stringify({
+          timestamp: firstDayAtNoon.toISOString(),
+          type: "turn_context",
+          payload: { model: "gpt-5.4" },
+        }),
+        JSON.stringify({
+          timestamp: firstDayAtNoon.toISOString(),
+          type: "event_msg",
+          payload: {
+            type: "token_count",
+            info: {
+              total_token_usage: {
+                input_tokens: 80,
+                output_tokens: 20,
+                total_tokens: 100,
+              },
+              last_token_usage: {
+                input_tokens: 80,
+                output_tokens: 20,
+                total_tokens: 100,
+              },
+            },
+          },
+        }),
+      ].join("\n"),
+      "utf8",
+    );
+    await writeFile(
+      join(root, "sessions", "2026", "03", "02", "day-two.jsonl"),
+      [
+        JSON.stringify({
+          timestamp: secondDayAtNoon.toISOString(),
+          type: "turn_context",
+          payload: { model: "gpt-5.4" },
+        }),
+        JSON.stringify({
+          timestamp: secondDayAtNoon.toISOString(),
+          type: "event_msg",
+          payload: {
+            type: "token_count",
+            info: {
+              total_token_usage: {
+                input_tokens: 100,
+                output_tokens: 50,
+                total_tokens: 150,
+              },
+              last_token_usage: {
+                input_tokens: 100,
+                output_tokens: 50,
+                total_tokens: 150,
+              },
+            },
+          },
+        }),
+      ].join("\n"),
+      "utf8",
+    );
+
+    selection = secondWindow;
+
+    const snapshot = await generateSnapshot({
+      ...firstWindow,
+      codexHome: root,
+      host: "127.0.0.1",
+      port: 4269,
+      provider: "codex",
+      refreshIntervalMs: 60_000,
+      resolveDateSelection: () => selection,
+    });
+
+    assert.equal(snapshot.summary.start, "2026-03-01");
+    assert.equal(snapshot.summary.end, "2026-03-02");
+    assert.equal(snapshot.summary.metrics.total, 250);
+    assert.equal(snapshot.activity.activeDays, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

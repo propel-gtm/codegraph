@@ -1,6 +1,10 @@
 import { loadClaudeUsage } from "./claude.ts";
 import { loadCodexUsage } from "./codex.ts";
 import { loadGrokUsage } from "./grok.ts";
+import {
+  isPropelUsageDependencyError,
+  loadPropelUsage,
+} from "./propel.ts";
 import { loadVibeUsage } from "./vibe.ts";
 import { mergeUsageSummaries } from "./summary.ts";
 import type { OutputFormat, ProviderId, UsageSummary } from "./types.ts";
@@ -24,7 +28,7 @@ export interface ResolveDateSelectionOptions {
   startDate?: string;
 }
 
-export const PROVIDERS: ProviderId[] = ["codex", "claude", "vibe", "grok", "all"];
+export const PROVIDERS: ProviderId[] = ["codex", "claude", "vibe", "grok", "propel", "all"];
 
 export function parseProvider(value?: string): ProviderId {
   const normalized = value?.trim().toLowerCase() ?? "all";
@@ -33,7 +37,9 @@ export function parseProvider(value?: string): ProviderId {
     return normalized as ProviderId;
   }
 
-  throw new Error(`Unsupported provider "${value}". Use codex, claude, vibe, grok, or all.`);
+  throw new Error(
+    `Unsupported provider "${value}". Use codex, claude, vibe, grok, propel, or all.`,
+  );
 }
 
 function getDefaultLabel({
@@ -70,8 +76,7 @@ export function resolveDateSelection(
   const { start, end } =
     startDate !== undefined && endDate !== undefined
       ? getCustomDateRangeDates(startDate, endDate)
-      :
-    selectedYear !== undefined
+      : selectedYear !== undefined
       ? getCalendarYearDates(selectedYear)
       : lastDays !== undefined
         ? getLastNDaysDates(lastDays)
@@ -97,7 +102,7 @@ export function getDefaultOutputName(
 export function createMissingUsageError(provider: ProviderId): Error {
   if (provider === "all") {
     return new Error(
-      "No Codex, Claude Code, Vibe, or Grok Code usage data was found in the requested window.",
+      "No Codex, Claude Code, Vibe, Grok Code, or Propel Code usage data was found in the requested window.",
     );
   }
 
@@ -108,6 +113,8 @@ export function createMissingUsageError(provider: ProviderId): Error {
         ? "Vibe"
         : provider === "grok"
           ? "Grok Code"
+          : provider === "propel"
+            ? "Propel Code"
           : "Codex";
 
   return new Error(`No ${name} usage data was found in the requested window.`);
@@ -121,6 +128,7 @@ export async function loadRequestedSummary(
   claudeConfigDir?: string,
   vibeHome?: string,
   grokHome?: string,
+  propelHome?: string,
 ): Promise<UsageSummary | null> {
   const codexPromise =
     provider === "codex" || provider === "all"
@@ -138,11 +146,20 @@ export async function loadRequestedSummary(
     provider === "grok" || provider === "all"
       ? loadGrokUsage(grokHome ? { start, end, grokHome } : { start, end })
       : Promise.resolve(null);
-  const [codexSummary, claudeSummary, vibeSummary, grokSummary] = await Promise.all([
+  const propelPromise =
+    provider === "propel"
+      ? loadPropelUsage(propelHome ? { start, end, propelHome } : { start, end })
+      : provider === "all"
+        ? loadPropelUsage(propelHome ? { start, end, propelHome } : { start, end }).catch(
+          (error: unknown) => isPropelUsageDependencyError(error) ? null : Promise.reject(error),
+        )
+        : Promise.resolve(null);
+  const [codexSummary, claudeSummary, vibeSummary, grokSummary, propelSummary] = await Promise.all([
     codexPromise,
     claudePromise,
     vibePromise,
     grokPromise,
+    propelPromise,
   ]);
 
   if (provider === "codex") {
@@ -161,8 +178,12 @@ export async function loadRequestedSummary(
     return grokSummary;
   }
 
+  if (provider === "propel") {
+    return propelSummary;
+  }
+
   return mergeUsageSummaries(
-    [codexSummary, claudeSummary, vibeSummary, grokSummary].filter(
+    [codexSummary, claudeSummary, vibeSummary, grokSummary, propelSummary].filter(
       (summary): summary is UsageSummary => summary !== null,
     ),
     start,
@@ -178,6 +199,7 @@ export async function loadRequestedSummaryOrThrow(
   claudeConfigDir?: string,
   vibeHome?: string,
   grokHome?: string,
+  propelHome?: string,
 ): Promise<UsageSummary> {
   const summary = await loadRequestedSummary(
     provider,
@@ -187,6 +209,7 @@ export async function loadRequestedSummaryOrThrow(
     claudeConfigDir,
     vibeHome,
     grokHome,
+    propelHome,
   );
 
   if (!summary) {

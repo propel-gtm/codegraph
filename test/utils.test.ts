@@ -99,6 +99,13 @@ test("extractRollingWindowArgs preserves string option values that look like rol
       lastDays: 365,
     },
   );
+  assert.deepEqual(
+    extractRollingWindowArgs(["--propel-home", "--last-30", "--last-365"]),
+    {
+      normalizedArgs: ["--propel-home", "--last-30"],
+      lastDays: 365,
+    },
+  );
 });
 
 test("extractRollingWindowArgs rejects multiple rolling window flags", () => {

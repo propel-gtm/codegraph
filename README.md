@@ -13,6 +13,7 @@ For a persistent local view, `codegraph --dashboard` starts a live dashboard tha
 - Claude Code
 - Vibe
 - Grok Code
+- Propel Code
 - merged `all` view across all detected providers
 
 By default, `codegraph` runs with `--provider all`.
@@ -70,16 +71,22 @@ Start the dashboard with a custom refresh cadence:
 codegraph --dashboard --refresh-minutes 10
 ```
 
+Generate a merged last-30 PNG:
+
+```bash
+codegraph --last-30
+```
+
 Generate a merged last-365 PNG:
 
 ```bash
 codegraph --last-365
 ```
 
-Generate a rolling last-30-day PNG:
+Generate a rolling last-90-day PNG:
 
 ```bash
-codegraph --last-30
+codegraph --last-90
 ```
 
 Generate a custom date-range PNG:
@@ -116,6 +123,12 @@ Generate Grok-only output:
 
 ```bash
 codegraph --provider grok
+```
+
+Generate Propel-only output:
+
+```bash
+codegraph --provider propel
 ```
 
 Generate JSON instead of the default PNG:
@@ -180,8 +193,8 @@ without depending on cached or fetched pricing data.
 ## CLI reference
 
 ```bash
-codegraph [--ytd | --last-N | --year YYYY | --start-date YYYY-MM-DD --end-date YYYY-MM-DD] [--provider codex|claude|vibe|grok|all] [--format svg|png|json] [--output PATH]
-codegraph --dashboard [--ytd | --last-N | --year YYYY | --start-date YYYY-MM-DD --end-date YYYY-MM-DD] [--provider codex|claude|vibe|grok|all] [--host HOST] [--port PORT] [--refresh-minutes MINUTES]
+codegraph [--ytd | --last-N | --year YYYY | --start-date YYYY-MM-DD --end-date YYYY-MM-DD] [--provider codex|claude|vibe|grok|propel|all] [--format svg|png|json] [--output PATH]
+codegraph --dashboard [--ytd | --last-N | --year YYYY | --start-date YYYY-MM-DD --end-date YYYY-MM-DD] [--provider codex|claude|vibe|grok|propel|all] [--host HOST] [--port PORT] [--refresh-minutes MINUTES]
 ```
 
 Options:
@@ -196,7 +209,7 @@ Options:
   Render from an explicit start date. Requires `--end-date`.
 - `--end-date YYYY-MM-DD`
   Render through an explicit end date. Requires `--start-date`.
-- `--provider codex|claude|vibe|grok|all`
+- `--provider codex|claude|vibe|grok|propel|all`
   Choose a single provider or merge all available providers. Default is `all`.
 - `--dashboard`
   Start a persistent local dashboard server instead of writing a file.
@@ -218,6 +231,8 @@ Options:
   Override the Vibe home directory.
 - `--grok-home PATH`
   Override the Grok Code home directory.
+- `--propel-home PATH`
+  Override the Propel Code home directory.
 - `--help`
   Print usage information.
 
@@ -238,6 +253,7 @@ Behavior:
 
 - the browser view auto-refreshes every 5 minutes by default
 - the server also refreshes its in-memory snapshot on the same cadence
+- YTD, rolling `--last-N`, and current-year dashboards recalculate their date window on refresh, so they roll forward without a restart
 - `Refresh now` forces an immediate reload without restarting the process
 - `/api/dashboard` exposes JSON with `refreshError`, `refreshIntervalMs`, and a `snapshot` payload for local integrations
 
@@ -335,6 +351,25 @@ You can override that root with:
 codegraph --provider grok --grok-home /path/to/.grok-code
 ```
 
+### Propel Code
+
+`codegraph` reads Propel Code audit events from:
+
+- `$PROPEL_HOME/state.sqlite3`
+- `~/.propel/state.sqlite3` if `PROPEL_HOME` is not set
+
+Only Propel audit events that include token usage metadata contribute to totals.
+If a local `state.sqlite3` only records model and provider metadata, `codegraph`
+will skip those rows and Propel will not contribute usage in that window.
+On runtimes without Node's built-in `node:sqlite` module, Propel support falls
+back to the local `sqlite3` command if it is installed.
+
+You can override that root with:
+
+```bash
+codegraph --provider propel --propel-home /path/to/.propel
+```
+
 ## Aggregation behavior
 
 ### Codex parsing
@@ -372,6 +407,18 @@ Behavior:
 - totals use `stats.session_total_llm_tokens` when present
 - activity is attributed to `end_time`, falling back to `start_time`
 - model names come from `config.active_model`
+
+### Propel Code parsing
+
+`codegraph` reads Propel Code usage from `audit_events.payload` rows in `state.sqlite3`.
+
+Behavior:
+
+- only audit events with positive token usage metadata are counted
+- OpenAI-style cache reads and cache writes are preserved separately in `cache.input` and `cache.output`
+- Claude-style cached reads and cache writes are folded into `input` and `output` to match the existing Claude spend model
+- rows without usage metadata are ignored
+- model names are normalized the same way as Codex names
 
 ### Merged provider behavior
 
@@ -464,6 +511,10 @@ Each `summary.stats` object contains:
   Claude Code session scanning and token aggregation.
 - `src/vibe.ts`
   Vibe session scanning and token aggregation.
+- `src/grok.ts`
+  Grok Code session scanning and token aggregation.
+- `src/propel.ts`
+  Propel Code `state.sqlite3` scanning and token aggregation.
 - `src/summary.ts`
   Shared daily/model aggregation and merged-summary utilities.
 - `src/update.ts`
@@ -513,6 +564,7 @@ bun test
 bun run build
 npx @propel-code/codegraph --help
 node dist/cli.js --provider codex --ytd
+node dist/cli.js --provider all --last-30
 node dist/cli.js --provider all --last-365
 node dist/cli.js --provider claude --year 2025 --format json
 node dist/cli.js --provider vibe --ytd --format json
