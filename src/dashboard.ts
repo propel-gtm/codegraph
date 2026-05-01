@@ -306,8 +306,8 @@ export function renderDashboardContent(state: DashboardViewState): string {
   return `
     <section class="hero panel">
       <div class="hero-copy">
-        <p class="eyebrow">Persistent dashboard</p>
-        <h1>codegraph live dashboard</h1>
+        <p class="eyebrow">Live usage dashboard</p>
+        <h1>codegraph</h1>
         <p class="hero-subtitle">
           Usage from
           <span>${escapeXml(summary.start)}</span>
@@ -417,24 +417,18 @@ export function renderDashboardHtml(state: DashboardViewState): string {
     <style>
       :root {
         color-scheme: light;
-        --bg: #ecf3ef;
-        --bg-deep: #e2ece7;
-        --ink: #0d1e16;
-        --muted: #546860;
-        --panel: rgba(245, 252, 248, 0.86);
-        --panel-strong: rgba(238, 249, 244, 0.97);
-        --border: rgba(13, 30, 22, 0.09);
-        --border-mid: rgba(13, 30, 22, 0.15);
-        --accent: #0b5c40;
-        --accent-light: #148258;
-        --accent-soft: #c8e8d8;
-        --accent-subtle: rgba(11, 92, 64, 0.07);
-        --warm: #9a4e22;
-        --warm-soft: rgba(154, 78, 34, 0.09);
-        --shadow-xs: 0 1px 2px rgba(13, 30, 22, 0.05);
-        --shadow-sm: 0 2px 8px rgba(13, 30, 22, 0.08), 0 1px 2px rgba(13, 30, 22, 0.04);
-        --shadow-md: 0 4px 20px rgba(13, 30, 22, 0.11), 0 1px 4px rgba(13, 30, 22, 0.05);
-        --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        --white: #fbfbf8;
+        --black: #0f0f0f;
+        --muted: #797978;
+        --border: #e4e4e2;
+        --border-strong: rgba(15, 15, 15, 0.2);
+        --red: #ff1a00;
+        --red-soft: #fff0ec;
+        --red-mid: #ffad9d;
+        --red-deep: #b91404;
+        --beige: #f1ede5;
+        --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+        --sans: "Theinhardt", "Avenir Next", "Inter", "Segoe UI", Arial, sans-serif;
       }
 
       * {
@@ -448,75 +442,60 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       }
 
       body {
-        background:
-          radial-gradient(ellipse at 0% 0%, rgba(11, 92, 64, 0.22) 0%, transparent 42%),
-          radial-gradient(ellipse at 92% 8%, rgba(154, 78, 34, 0.16) 0%, transparent 28%),
-          radial-gradient(ellipse at 50% 100%, rgba(11, 92, 64, 0.10) 0%, transparent 50%),
-          linear-gradient(175deg, var(--bg) 0%, var(--bg-deep) 100%);
-        color: var(--ink);
-        font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+        background: var(--white);
+        color: var(--black);
+        font-family: var(--sans);
         font-size: 15px;
-        line-height: 1.5;
-      }
-
-      body::before {
-        content: "";
-        inset: 0;
-        pointer-events: none;
-        position: fixed;
-        background-image:
-          linear-gradient(rgba(13, 30, 22, 0.035) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(13, 30, 22, 0.035) 1px, transparent 1px);
-        background-size: 28px 28px;
-        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.45) 0%, transparent 60%);
-        z-index: 0;
+        line-height: 1.35;
+        -webkit-font-smoothing: antialiased;
       }
 
       .shell {
         margin: 0 auto;
-        max-width: 1540px;
-        padding: 24px 22px 56px;
+        max-width: 1440px;
+        padding: 20px 20px 64px;
         position: relative;
+        width: 100%;
         z-index: 1;
       }
 
       #dashboard-root {
         display: grid;
-        gap: 16px;
+        gap: 20px;
       }
 
       /* ── Panels ── */
 
       .panel {
-        background: var(--panel);
-        backdrop-filter: blur(20px) saturate(1.4);
+        background: var(--white);
         border: 1px solid var(--border);
-        border-radius: 26px;
-        box-shadow: var(--shadow-md), var(--shadow-inset);
+        border-radius: 0;
       }
 
       /* ── Hero ── */
 
       .hero {
-        align-items: flex-end;
-        display: flex;
-        gap: 20px;
+        align-items: end;
+        background: var(--beige);
+        display: grid;
+        gap: 24px;
+        grid-template-columns: minmax(0, 1fr) auto;
         justify-content: space-between;
-        padding: 30px 34px 28px;
+        min-height: 260px;
+        padding: 44px 34px 38px;
       }
 
       .hero-copy {
         display: grid;
-        gap: 10px;
+        gap: 18px;
       }
 
       .eyebrow {
-        color: var(--warm);
-        font-size: 0.73rem;
-        font-weight: 800;
-        letter-spacing: 0.16em;
+        color: var(--red);
+        font-size: 0.86rem;
+        font-weight: 500;
+        letter-spacing: 0;
         margin: 0;
-        text-transform: uppercase;
       }
 
       h1,
@@ -528,28 +507,28 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       }
 
       h1 {
-        font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
-        font-size: clamp(2.2rem, 4.5vw, 3.6rem);
-        letter-spacing: -0.04em;
-        line-height: 0.92;
+        font-size: clamp(3.6rem, 8vw, 6.4rem);
+        font-weight: 400;
+        letter-spacing: 0;
+        line-height: 0.94;
       }
 
       h2 {
-        font-size: 0.95rem;
-        font-weight: 700;
-        letter-spacing: -0.01em;
+        font-size: 1rem;
+        font-weight: 500;
+        letter-spacing: 0;
       }
 
       h3 {
-        font-size: 0.88rem;
-        font-weight: 700;
+        font-size: 0.95rem;
+        font-weight: 500;
         letter-spacing: 0em;
       }
 
       h4 {
-        font-size: 0.72rem;
-        font-weight: 800;
-        letter-spacing: 0.08em;
+        font-size: 0.78rem;
+        font-weight: 500;
+        letter-spacing: 0;
         text-transform: uppercase;
       }
 
@@ -557,14 +536,14 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         color: var(--muted);
         display: flex;
         flex-wrap: wrap;
-        font-size: 0.9rem;
+        font-size: 1rem;
         gap: 0.3rem;
-        line-height: 1.5;
+        line-height: 1.35;
       }
 
       .hero-subtitle span {
-        color: var(--ink);
-        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+        color: var(--black);
+        font-family: var(--mono);
       }
 
       .hero-actions {
@@ -578,58 +557,92 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
       .status-pill,
       .refresh-button {
-        border-radius: 999px;
         display: inline-flex;
-        font-size: 0.85rem;
-        font-weight: 700;
-        padding: 0.65rem 1.1rem;
+        font-size: 0.86rem;
+        font-weight: 500;
+        min-height: 42px;
+        padding: 0.8rem 1.15rem;
       }
 
       .status-pill {
-        background: var(--accent-soft);
-        color: var(--accent);
+        align-items: center;
+        background: var(--red-soft);
+        border: 1px solid var(--red-mid);
+        color: var(--black);
       }
 
       .refresh-button {
-        background: var(--ink);
+        --border-width: 1px;
+        --cut-size: 8px;
+        align-items: center;
+        background: transparent;
         border: none;
-        color: white;
+        color: var(--white);
         cursor: pointer;
-        transition: background 130ms ease, transform 130ms ease, box-shadow 130ms ease;
+        isolation: isolate;
+        justify-content: center;
+        position: relative;
+        transition: color 160ms ease, transform 160ms ease;
       }
 
-      .refresh-button:hover {
-        box-shadow: 0 4px 14px rgba(13, 30, 22, 0.2);
-        transform: translateY(-1px);
+      .refresh-button::before,
+      .refresh-button::after {
+        clip-path: polygon(
+          var(--cut-size) 0,
+          calc(100% - var(--cut-size)) 0,
+          100% var(--cut-size),
+          100% calc(100% - var(--cut-size)),
+          calc(100% - var(--cut-size)) 100%,
+          var(--cut-size) 100%,
+          0 calc(100% - var(--cut-size)),
+          0 var(--cut-size)
+        );
+        content: "";
+        pointer-events: none;
+        position: absolute;
+        transition: background-color 160ms ease;
+      }
+
+      .refresh-button::before {
+        background: var(--red);
+        inset: 0;
+        z-index: -2;
+      }
+
+      .refresh-button::after {
+        background: var(--red);
+        inset: var(--border-width);
+        z-index: -1;
+      }
+
+      .refresh-button:hover::before,
+      .refresh-button:hover::after {
+        background: var(--black);
       }
 
       .refresh-button:active {
-        transform: translateY(0);
+        transform: translateY(1px);
       }
 
       /* ── Status banner (error) ── */
 
       .status-banner {
         align-items: center;
-        background: var(--warm-soft);
-        border: 1px solid rgba(154, 78, 34, 0.2);
-        border-radius: 18px;
-        color: #6d3415;
+        background: var(--beige);
+        border: 1px solid var(--red);
+        color: var(--black);
         display: flex;
         flex-wrap: wrap;
         gap: 0.7rem;
         justify-content: space-between;
-        padding: 13px 18px;
+        padding: 14px 18px;
       }
 
       /* ── Status strip ── */
 
       .status-strip {
-        background: var(--panel);
-        backdrop-filter: blur(20px);
+        background: var(--white);
         border: 1px solid var(--border);
-        border-radius: 20px;
-        box-shadow: var(--shadow-sm), var(--shadow-inset);
         display: grid;
         gap: 0;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -652,39 +665,39 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       .metric-label,
       .panel-footnote {
         color: var(--muted);
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         font-weight: 500;
-        letter-spacing: 0.01em;
+        letter-spacing: 0;
       }
 
       .panel-meta {
-        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+        font-family: var(--mono);
         font-weight: 400;
       }
 
       .status-strip strong {
-        font-size: 0.95rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
+        font-size: 1rem;
+        font-weight: 500;
+        letter-spacing: 0;
       }
 
       /* ── Layout grids ── */
 
       .dashboard-grid {
         display: grid;
-        gap: 16px;
-        grid-template-columns: minmax(0, 1.75fr) minmax(300px, 0.95fr);
+        gap: 20px;
+        grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.85fr);
       }
 
       .bottom-grid {
         display: grid;
-        gap: 16px;
+        gap: 20px;
         grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
       }
 
       .side-column {
         display: grid;
-        gap: 16px;
+        gap: 20px;
       }
 
       /* ── Panel inner layout ── */
@@ -705,7 +718,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         display: flex;
         gap: 8px;
         justify-content: space-between;
-        margin-bottom: 16px;
+        margin-bottom: 18px;
       }
 
       /* ── Heatmap ── */
@@ -714,6 +727,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         display: flex;
         justify-content: center;
         overflow: auto;
+        padding: 4px 0;
       }
 
       .heatmap-frame svg {
@@ -727,25 +741,34 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
       .metrics-grid {
         display: grid;
-        gap: 10px;
+        gap: 12px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .metric-tile {
-        background: var(--panel);
+        background: var(--white);
         border: 1px solid var(--border);
-        border-radius: 20px;
-        box-shadow: var(--shadow-xs), var(--shadow-inset);
         display: flex;
         flex-direction: column;
         gap: 8px;
-        min-height: 104px;
+        min-height: 112px;
         padding: 16px 18px 17px;
+        position: relative;
       }
 
       .metric-tile-accent {
-        background: linear-gradient(148deg, rgba(11, 92, 64, 0.16) 0%, rgba(196, 232, 214, 0.55) 55%, rgba(245, 252, 248, 0.4) 100%);
-        border-color: rgba(11, 92, 64, 0.2);
+        background: var(--red-soft);
+        border-color: var(--red-mid);
+      }
+
+      .metric-tile-accent::before {
+        background: var(--red);
+        content: "";
+        height: 4px;
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: 0;
       }
 
       .metric-label {
@@ -753,10 +776,10 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       }
 
       .metric-value {
-        font-family: "Palatino Linotype", "Book Antiqua", Georgia, serif;
-        font-size: 2.4rem;
-        letter-spacing: -0.05em;
-        line-height: 1;
+        font-size: 2.45rem;
+        font-weight: 500;
+        letter-spacing: 0;
+        line-height: 0.95;
         margin-top: auto;
       }
 
@@ -793,15 +816,15 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       .insight-list dt {
         color: var(--muted);
         font-size: 0.74rem;
-        font-weight: 600;
-        letter-spacing: 0.04em;
+        font-weight: 500;
+        letter-spacing: 0;
         text-transform: uppercase;
       }
 
       .insight-list dd {
         font-size: 0.97rem;
-        font-weight: 700;
-        letter-spacing: -0.02em;
+        font-weight: 500;
+        letter-spacing: 0;
         margin: 0;
       }
 
@@ -819,13 +842,12 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         align-items: center;
         border-top: 1px solid var(--border);
         display: flex;
-        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+        font-family: var(--mono);
         font-size: 0.85rem;
         gap: 12px;
         justify-content: space-between;
         margin: 0 -6px;
         padding: 10px 6px;
-        border-radius: 8px;
         transition: background 110ms ease;
       }
 
@@ -834,7 +856,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       }
 
       .list-row:hover {
-        background: var(--accent-subtle);
+        background: var(--beige);
       }
 
       .list-empty {
@@ -873,7 +895,6 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         border-top: 1px solid var(--border);
         margin: 0 -6px;
         padding: 10px 6px;
-        border-radius: 8px;
         transition: background 110ms ease;
       }
 
@@ -882,7 +903,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       }
 
       .breakdown-row:hover {
-        background: var(--accent-subtle);
+        background: var(--beige);
       }
 
       .breakdown-copy {
@@ -900,9 +921,9 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       }
 
       .breakdown-label {
-        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+        font-family: var(--mono);
         font-size: 0.83rem;
-        font-weight: 700;
+        font-weight: 600;
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -911,21 +932,19 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
       .breakdown-total {
         flex-shrink: 0;
-        font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+        font-family: var(--mono);
         font-size: 0.83rem;
-        font-weight: 700;
+        font-weight: 600;
       }
 
       .breakdown-bar {
-        background: var(--border);
-        border-radius: 999px;
-        height: 3px;
+        background: rgba(15, 15, 15, 0.1);
+        height: 4px;
         overflow: hidden;
       }
 
       .breakdown-bar-fill {
-        background: var(--accent-light);
-        border-radius: 999px;
+        background: var(--red-deep);
         height: 100%;
         min-width: 3px;
         transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -959,7 +978,8 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       @media (max-width: 860px) {
         .hero {
           align-items: flex-start;
-          flex-direction: column;
+          grid-template-columns: 1fr;
+          min-height: 220px;
         }
 
         .status-strip {
@@ -987,12 +1007,15 @@ export function renderDashboardHtml(state: DashboardViewState): string {
 
       @media (max-width: 640px) {
         .shell {
-          padding-inline: 14px;
+          padding: 14px 14px 48px;
         }
 
-        .panel,
-        .status-strip {
-          border-radius: 20px;
+        .hero {
+          padding: 34px 24px 36px;
+        }
+
+        h1 {
+          font-size: clamp(3rem, 14vw, 4rem);
         }
 
         .status-strip {

@@ -56,22 +56,22 @@ interface GridLayout {
 }
 
 const TITLE_FONT_STACK =
-  "'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+  "'Theinhardt', 'Avenir Next', 'Inter', 'Segoe UI', Arial, sans-serif";
 const UI_FONT_STACK =
-  "'IBM Plex Sans', 'Avenir Next', 'Segoe UI', Arial, sans-serif";
+  "'Theinhardt', 'Avenir Next', 'Inter', 'Segoe UI', Arial, sans-serif";
 const MONO_FONT_STACK =
   "'IBM Plex Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace";
 
 const THEME: Theme = {
-  backgroundStart: "#f9fbf8",
-  backgroundEnd: "#eaf3ed",
-  panel: "#f4f9f6",
-  border: "#cddbd4",
-  text: "#122019",
-  muted: "#5f6f67",
-  accent: "#2a8c62",
-  empty: "#e8eeea",
-  palette: ["#aecfbe", "#80b8a0", "#4ea07b", "#237a56", "#0a5a3e"],
+  backgroundStart: "#fbfbf8",
+  backgroundEnd: "#fbfbf8",
+  panel: "#fbfbf8",
+  border: "#dfddd5",
+  text: "#0f0f0f",
+  muted: "#74716b",
+  accent: "#ff1a00",
+  empty: "#ece8df",
+  palette: ["#ffd8ce", "#ffad9d", "#ff7661", "#ff361d", "#b91404"],
 };
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -89,7 +89,7 @@ function colorForValue(value: number, maxValue: number, theme: Theme): string {
     return theme.empty;
   }
 
-  const normalized = Math.pow(value / maxValue, 0.72);
+  const normalized = Math.pow(value / maxValue, 1.08);
   const index = Math.min(
     theme.palette.length - 1,
     Math.max(0, Math.ceil(normalized * theme.palette.length) - 1),
@@ -165,7 +165,8 @@ function metricBlock(
     .join("");
 
   return `
-    <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="14" fill="${theme.panel}" stroke="${theme.border}" />
+    <rect x="${x}" y="${y}" width="${width}" height="${height}" rx="8" fill="${theme.panel}" stroke="${theme.border}" />
+    <rect x="${x}" y="${y}" width="4" height="${height}" rx="2" fill="${theme.accent}" />
     ${labelMarkup}
     <text x="${x + 16}" y="${y + (isMultilineLabel ? 59 : 55)}" fill="${theme.text}" font-family="${TITLE_FONT_STACK}" font-size="${isMultilineLabel ? 23 : 25}" font-weight="700">
       ${escapeXml(value)}
@@ -279,7 +280,7 @@ function resolveStandaloneGridLayout(weekCount: number): GridLayout {
   const insightY = dividerY + 28;
 
   return {
-    cellRadius: Math.max(3, Math.min(6, Math.round(cellSize * 0.25))),
+    cellRadius: Math.max(2, Math.min(4, Math.round(cellSize * 0.14))),
     cellSize,
     dayLabelX: 24,
     gap,
@@ -322,7 +323,7 @@ function resolveDashboardGridLayout(weekCount: number): GridLayout {
   const legendY = top + gridHeight + 34;
 
   return {
-    cellRadius: Math.max(3, Math.min(7, Math.round(cellSize * 0.25))),
+    cellRadius: Math.max(2, Math.min(4, Math.round(cellSize * 0.14))),
     cellSize,
     dayLabelX: Math.max(padding, left - 22),
     gap,
@@ -423,6 +424,8 @@ export function renderHeatmapSvg(
     variant === "standalone"
       ? "A rolling usage heatmap with token totals and model insights."
       : "A rolling usage heatmap for the selected provider.";
+  const backgroundFill = variant === "dashboard" ? theme.panel : "url(#codegraph-bg)";
+  const backgroundStroke = variant === "dashboard" ? "none" : theme.border;
 
   const monthText = monthLabels
     .map((label, index) => {
@@ -468,7 +471,7 @@ export function renderHeatmapSvg(
           );
 
           return `
-            <rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="${cellRadius}" fill="${fill}">
+            <rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="${cellRadius}" fill="${fill}" stroke="${theme.panel}" stroke-width="1">
               ${title ? `<title>${escapeXml(title)}</title>` : ""}
             </rect>
           `;
@@ -487,7 +490,7 @@ export function renderHeatmapSvg(
       <stop offset="100%" stop-color="${theme.backgroundEnd}" />
     </linearGradient>
   </defs>
-  <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="22" fill="url(#codegraph-bg)" stroke="${theme.border}" />
+  <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="8" fill="${backgroundFill}" stroke="${backgroundStroke}" />
   ${titleMarkup}
   ${metricMarkup}
   ${monthText}

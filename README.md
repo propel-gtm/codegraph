@@ -353,14 +353,20 @@ codegraph --provider grok --grok-home /path/to/.grok-code
 
 ### Propel Code
 
-`codegraph` reads Propel Code audit events from:
+`codegraph` reads Propel Code usage from `state.sqlite3`:
 
 - `$PROPEL_HOME/state.sqlite3`
 - `~/.propel/state.sqlite3` if `PROPEL_HOME` is not set
 
-Only Propel audit events that include token usage metadata contribute to totals.
-If a local `state.sqlite3` only records model and provider metadata, `codegraph`
-will skip those rows and Propel will not contribute usage in that window.
+Usage is sourced from:
+
+- `audit_events.payload`
+- `turn_items.payload_json` for `provider_response` session rows
+
+Only rows that include token usage metadata contribute to totals. If a local
+`state.sqlite3` only records model and provider metadata, `codegraph` skips
+those rows and Propel will not contribute usage in that window. Both ISO
+timestamps and Unix epoch-second timestamps are supported.
 On runtimes without Node's built-in `node:sqlite` module, Propel support falls
 back to the local `sqlite3` command if it is installed.
 
@@ -410,14 +416,18 @@ Behavior:
 
 ### Propel Code parsing
 
-`codegraph` reads Propel Code usage from `audit_events.payload` rows in `state.sqlite3`.
+`codegraph` reads Propel Code usage from `state.sqlite3` audit events and
+session provider responses.
 
 Behavior:
 
-- only audit events with positive token usage metadata are counted
+- only rows with positive token usage metadata are counted
+- session `provider_response` rows with positive token usage metadata are also counted
+- matching audit events and session rows are de-duplicated by provider response ID when available
 - OpenAI-style cache reads and cache writes are preserved separately in `cache.input` and `cache.output`
 - Claude-style cached reads and cache writes are folded into `input` and `output` to match the existing Claude spend model
 - rows without usage metadata are ignored
+- both ISO timestamps and Unix epoch-second timestamps are accepted
 - model names are normalized the same way as Codex names
 
 ### Merged provider behavior

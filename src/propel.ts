@@ -27,9 +27,25 @@ import {
 const execFileAsync = promisify(execFile);
 
 interface PropelAuditEventRow {
+  id: string;
   created_at: string;
   kind: string;
   payload: string;
+}
+
+interface PropelSessionItemRow {
+  id: string;
+  created_at: string;
+  item_type: string;
+  payload_json: string;
+}
+
+interface PropelUsageRow {
+  id: string;
+  created_at: string;
+  payload: string;
+  source: "audit_events" | "turn_items";
+  type: string;
 }
 
 interface ProcessContext {
@@ -104,6 +120,21 @@ async function pathExists(path: string): Promise<boolean> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function getString(
+  record: Record<string, unknown>,
+  keys: string[],
+): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
 }
 
 function getNumber(
@@ -233,6 +264,18 @@ function extractModel(payload: Record<string, unknown>): string {
   );
 }
 
+function extractProviderResponseId(payload: Record<string, unknown>): string | null {
+  const metadata = isRecord(payload.metadata) ? payload.metadata : null;
+  const response = isRecord(payload.response) ? payload.response : null;
+  const result = isRecord(payload.result) ? payload.result : null;
+
+  return getString(payload, ["provider_response_id"]) ??
+    (response ? getString(response, ["provider_response_id", "response_id", "id"]) : undefined) ??
+    (result ? getString(result, ["provider_response_id", "response_id", "id"]) : undefined) ??
+    (metadata ? getString(metadata, ["provider_response_id", "response_id", "id"]) : undefined) ??
+    null;
+}
+
 function getUsageCandidates(payload: Record<string, unknown>): Array<Record<string, unknown>> {
   const response = isRecord(payload.response) ? payload.response : null;
   const result = isRecord(payload.result) ? payload.result : null;
@@ -309,18 +352,19 @@ async function queryAuditEventsWithNodeSqlite(
 
   try {
     const statement = database.prepare(`
-      SELECT created_at, kind, payload
+      SELECT id, created_at, kind, payload
       FROM audit_events
-      WHERE created_at >= ? AND created_at <= ?
-      ORDER BY created_at ASC
+      WHERE ${buildTimestampFilter("created_at", start, end)}
     `);
 
-    return (statement.all(start.toISOString(), end.toISOString()) as Array<Record<string, unknown>>)
+    return (statement.all() as Array<Record<string, unknown>>)
       .flatMap((row) => {
-        return typeof row.created_at === "string" &&
+        return typeof row.id === "string" &&
+            typeof row.created_at === "string" &&
             typeof row.kind === "string" &&
             typeof row.payload === "string"
           ? [{
+              id: row.id,
               created_at: row.created_at,
               kind: row.kind,
               payload: row.payload,
@@ -341,12 +385,26 @@ function isMissingSqliteCliError(error: unknown): boolean {
   );
 }
 
+function isMissingSqliteTableError(
+  error: unknown,
+  tableName: string,
+): boolean {
+  const message =
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+      ? (error as { message: string }).message
+      : "";
+
+  return message.includes(`no such table: ${tableName}`);
+}
+
 function buildCliQuery(start: Date, end: Date): string {
   return [
-    "SELECT created_at, kind, payload",
+    "SELECT id, created_at, kind, payload",
     "FROM audit_events",
-    `WHERE created_at >= '${start.toISOString()}' AND created_at <= '${end.toISOString()}'`,
-    "ORDER BY created_at ASC;",
+    `WHERE ${buildTimestampFilter("created_at", start, end)};`,
   ].join(" ");
 }
 
@@ -377,10 +435,12 @@ async function queryAuditEventsWithSqliteCli(
         return [];
       }
 
-      return typeof row.created_at === "string" &&
+      return typeof row.id === "string" &&
+          typeof row.created_at === "string" &&
           typeof row.kind === "string" &&
           typeof row.payload === "string"
         ? [{
+            id: row.id,
             created_at: row.created_at,
             kind: row.kind,
             payload: row.payload,
@@ -403,13 +463,211 @@ async function queryAuditEvents(
   start: Date,
   end: Date,
 ): Promise<PropelAuditEventRow[]> {
-  const rows = await queryAuditEventsWithNodeSqlite(dbPath, start, end);
+  try {
+    const rows = await queryAuditEventsWithNodeSqlite(dbPath, start, end);
 
-  if (rows) {
-    return rows;
+    if (rows) {
+      return rows;
+    }
+
+    return await queryAuditEventsWithSqliteCli(dbPath, start, end);
+  } catch (error) {
+    if (isMissingSqliteTableError(error, "audit_events")) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+function buildTimestampFilter(
+  columnName: string,
+  start: Date,
+  end: Date,
+): string {
+  const startIso = start.toISOString().replaceAll("'", "''");
+  const endIso = end.toISOString().replaceAll("'", "''");
+  const startSeconds = start.getTime() / 1000;
+  const endSeconds = end.getTime() / 1000;
+  const normalized = `trim(CAST(${columnName} AS TEXT))`;
+  const isNumeric = `${normalized} != '' AND ${normalized} NOT GLOB '*[^0-9.]*'`;
+
+  return [
+    "(",
+    `CASE`,
+    `WHEN ${isNumeric} THEN CAST(${normalized} AS REAL) >= ${startSeconds} AND CAST(${normalized} AS REAL) <= ${endSeconds}`,
+    `ELSE ${columnName} >= '${startIso}' AND ${columnName} <= '${endIso}'`,
+    `END`,
+    ")",
+  ].join(" ");
+}
+
+async function querySessionItemsWithNodeSqlite(
+  dbPath: string,
+  start: Date,
+  end: Date,
+): Promise<PropelSessionItemRow[] | null> {
+  const sqlite = await importNodeSqlite();
+
+  if (!sqlite) {
+    return null;
   }
 
-  return queryAuditEventsWithSqliteCli(dbPath, start, end);
+  const database = new sqlite.DatabaseSync(dbPath);
+
+  try {
+    const statement = database.prepare(`
+      SELECT id, created_at, item_type, payload_json
+      FROM turn_items
+      WHERE item_type = 'provider_response'
+        AND ${buildTimestampFilter("created_at", start, end)}
+    `);
+
+    return (statement.all() as Array<Record<string, unknown>>)
+      .flatMap((row) => {
+        return typeof row.id === "string" &&
+            typeof row.created_at === "string" &&
+            typeof row.item_type === "string" &&
+            typeof row.payload_json === "string"
+          ? [{
+              id: row.id,
+              created_at: row.created_at,
+              item_type: row.item_type,
+              payload_json: row.payload_json,
+            }]
+          : [];
+      });
+  } finally {
+    database.close();
+  }
+}
+
+function buildSessionCliQuery(start: Date, end: Date): string {
+  return [
+    "SELECT id, created_at, item_type, payload_json",
+    "FROM turn_items",
+    "WHERE item_type = 'provider_response'",
+    `AND ${buildTimestampFilter("created_at", start, end)};`,
+  ].join(" ");
+}
+
+async function querySessionItemsWithSqliteCli(
+  dbPath: string,
+  start: Date,
+  end: Date,
+): Promise<PropelSessionItemRow[]> {
+  try {
+    const { stdout } = await execFileAsync(
+      "sqlite3",
+      ["-json", dbPath, buildSessionCliQuery(start, end)],
+      { maxBuffer: 10 * 1024 * 1024 },
+    );
+
+    if (!stdout.trim()) {
+      return [];
+    }
+
+    const parsed = JSON.parse(stdout) as unknown;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.flatMap((row) => {
+      if (!isRecord(row)) {
+        return [];
+      }
+
+      return typeof row.id === "string" &&
+          typeof row.created_at === "string" &&
+          typeof row.item_type === "string" &&
+          typeof row.payload_json === "string"
+        ? [{
+            id: row.id,
+            created_at: row.created_at,
+            item_type: row.item_type,
+            payload_json: row.payload_json,
+          }]
+        : [];
+    });
+  } catch (error) {
+    if (isMissingSqliteCliError(error)) {
+      throw new PropelUsageDependencyError(
+        "Propel Code support requires Node's `node:sqlite` module or the `sqlite3` command to read ~/.propel/state.sqlite3.",
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function querySessionItems(
+  dbPath: string,
+  start: Date,
+  end: Date,
+): Promise<PropelSessionItemRow[]> {
+  try {
+    const rows = await querySessionItemsWithNodeSqlite(dbPath, start, end);
+
+    if (rows) {
+      return rows;
+    }
+
+    return await querySessionItemsWithSqliteCli(dbPath, start, end);
+  } catch (error) {
+    if (isMissingSqliteTableError(error, "turn_items")) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+function toUsageRows(
+  auditRows: PropelAuditEventRow[],
+  sessionRows: PropelSessionItemRow[],
+): PropelUsageRow[] {
+  return [
+    ...auditRows.map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      payload: row.payload,
+      source: "audit_events" as const,
+      type: row.kind,
+    })),
+    ...sessionRows.map((row) => ({
+      id: row.id,
+      created_at: row.created_at,
+      payload: row.payload_json,
+      source: "turn_items" as const,
+      type: row.item_type,
+    })),
+  ];
+}
+
+function parseStoredTimestamp(value: string): Date | null {
+  const trimmed = value.trim();
+
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    const numericValue = Number(trimmed);
+
+    if (!Number.isFinite(numericValue)) {
+      return null;
+    }
+
+    const milliseconds = numericValue >= 1e12 ? numericValue : numericValue * 1000;
+    const timestamp = new Date(milliseconds);
+
+    return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+  }
+
+  const timestamp = new Date(trimmed);
+
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp;
 }
 
 export function isPropelUsageDependencyError(error: unknown): boolean {
@@ -447,10 +705,15 @@ export async function loadPropelUsage(
     },
   };
 
-  let rows: PropelAuditEventRow[];
+  let rows: PropelUsageRow[];
 
   try {
-    rows = await queryAuditEvents(dbPath, start, end);
+    const [auditRows, sessionRows] = await Promise.all([
+      queryAuditEvents(dbPath, start, end),
+      querySessionItems(dbPath, start, end),
+    ]);
+
+    rows = toUsageRows(auditRows, sessionRows);
   } catch (error) {
     context.stats.filesFailed = 1;
 
@@ -463,12 +726,20 @@ export async function loadPropelUsage(
     throw new Error(`Failed to read Propel Code usage from ${dbPath}: ${message}`);
   }
 
+  rows.sort((left, right) => {
+    const leftTimestamp = parseStoredTimestamp(left.created_at)?.getTime() ?? Number.NEGATIVE_INFINITY;
+    const rightTimestamp = parseStoredTimestamp(right.created_at)?.getTime() ?? Number.NEGATIVE_INFINITY;
+
+    return leftTimestamp - rightTimestamp;
+  });
+
   context.stats.linesScanned = rows.length;
+  const consumedResponseIds = new Set<string>();
 
   for (const row of rows) {
-    const timestamp = new Date(row.created_at);
+    const timestamp = parseStoredTimestamp(row.created_at);
 
-    if (Number.isNaN(timestamp.getTime()) || timestamp < context.start || timestamp > context.end) {
+    if (!timestamp || timestamp < context.start || timestamp > context.end) {
       continue;
     }
 
@@ -487,9 +758,18 @@ export async function loadPropelUsage(
 
     const modelName = extractModel(payload);
     const tokens = extractTokens(payload, modelName);
+    const providerResponseId = extractProviderResponseId(payload);
 
     if (!tokens || tokens.total <= 0) {
       continue;
+    }
+
+    if (providerResponseId && consumedResponseIds.has(providerResponseId)) {
+      continue;
+    }
+
+    if (providerResponseId) {
+      consumedResponseIds.add(providerResponseId);
     }
 
     const dateKey = formatLocalDate(timestamp);

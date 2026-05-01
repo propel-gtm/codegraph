@@ -174,6 +174,12 @@ test("renderHeatmapSvg returns a titled SVG document", () => {
   assert.match(svg, /LATEST MODEL/);
   assert.match(svg, /gpt-5\.4/);
   assert.match(svg, /\(30\)/);
+  assert.match(svg, /#fbfbf8/);
+  assert.match(svg, /#ece8df/);
+  assert.match(svg, /#ff7661/);
+  assert.match(svg, /#b91404/);
+  assert.doesNotMatch(svg, /#8ceed4/);
+  assert.doesNotMatch(svg, /<rect[^>]+fill="#0f0f0f"/);
   assert.doesNotMatch(svg, /Mar 7/);
 });
 
@@ -194,7 +200,7 @@ test("renderHeatmapSvg dashboard variant omits standalone summary chrome", () =>
   assert.doesNotMatch(svg, /LATEST MODEL/);
   assert.doesNotMatch(svg, /2026-03-01 to 2026-03-07/);
   assert.match(svg, /viewBox="0 0 500 304"/);
-  assert.match(svg, /<rect x="235" y="32" width="28" height="28" rx="7" fill="/);
+  assert.match(svg, /<rect x="235" y="32" width="28" height="28" rx="4" fill="/);
   assert.match(svg, /text-anchor="middle" dominant-baseline="middle"/);
 });
 
@@ -202,7 +208,7 @@ test("renderHeatmapSvg scales short ranges to use more space", () => {
   const svg = renderHeatmapSvg(sampleSummary);
 
   assert.match(svg, /viewBox="0 0 940 500"/);
-  assert.match(svg, /<rect x="62" y="154" width="24" height="24" rx="6" fill="/);
+  assert.match(svg, /<rect x="62" y="154" width="24" height="24" rx="3" fill="/);
 });
 
 test("renderHeatmapPng returns a PNG image", { timeout: 60000 }, () => {

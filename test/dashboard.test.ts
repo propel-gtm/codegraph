@@ -243,6 +243,18 @@ test("dashboard renderers include live refresh affordances", () => {
   assert.match(html, /setInterval/);
   assert.match(html, /\/dashboard-content/);
   assert.match(html, /300000/);
+  assert.match(html, /--red: #ff1a00;/);
+  assert.match(html, /--red-soft: #fff0ec;/);
+  assert.match(html, /--red-deep: #b91404;/);
+  assert.match(html, /--beige: #f1ede5;/);
+  assert.match(html, /\.refresh-button::before/);
+  assert.match(html, /clip-path: polygon\(/);
+  assert.doesNotMatch(html, /backdrop-filter/);
+  assert.doesNotMatch(html, /radial-gradient/);
+  assert.doesNotMatch(html, /Palatino/);
+  assert.match(content, /#b91404/);
+  assert.doesNotMatch(content, /#8ceed4/);
+  assert.doesNotMatch(content, /<rect[^>]+fill="#0f0f0f"/);
   assert.match(html, /\.heatmap-panel\s*\{\s*align-items: start;/);
 });
 
