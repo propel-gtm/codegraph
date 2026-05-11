@@ -28,6 +28,10 @@ interface Theme {
 
 interface CellDay {
   date?: string | null;
+  cache?: {
+    input: number;
+    output: number;
+  };
   input?: number;
   output?: number;
   total: number;
@@ -127,8 +131,16 @@ function buildCellTitle(day: CellDay | null | undefined): string {
   }
 
   const breakdown = day.breakdown
-    .slice(0, 3)
-    .map((entry) => `${entry.name}: ${compactNumber(entry.tokens.total)}`)
+    .map((entry) => {
+      const cacheRead = entry.tokens.cache.input;
+      const cacheWrite = entry.tokens.cache.output;
+
+      return [
+        `${entry.name}: ${compactNumber(entry.tokens.total)} total`,
+        `(${compactNumber(entry.tokens.input)} in / ${compactNumber(entry.tokens.output)} out`,
+        `, ${compactNumber(cacheRead)} cache read / ${compactNumber(cacheWrite)} cache write)`,
+      ].join("");
+    })
     .join("\n");
 
   return [
@@ -136,10 +148,27 @@ function buildCellTitle(day: CellDay | null | undefined): string {
     `Total: ${compactNumber(day.total)} tokens`,
     `Input: ${compactNumber(day.input ?? 0)}`,
     `Output: ${compactNumber(day.output ?? 0)}`,
-    breakdown ? `Top models:\n${breakdown}` : "",
+    `Cache read: ${compactNumber(day.cache?.input ?? 0)}`,
+    `Cache write: ${compactNumber(day.cache?.output ?? 0)}`,
+    breakdown ? `Models:\n${breakdown}` : "",
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function buildCellAttributes(title: string): string {
+  if (!title) {
+    return "";
+  }
+
+  const value = escapeXml(title);
+
+  return [
+    'data-codegraph-cell="true"',
+    `data-codegraph-tooltip="${value}"`,
+    `aria-label="${value}"`,
+    'tabindex="0"',
+  ].join(" ");
 }
 
 function metricBlock(
@@ -469,9 +498,10 @@ export function renderHeatmapSvg(
           const title = buildCellTitle(
             day ?? { date, total: 0, breakdown: [] },
           );
+          const cellAttributes = buildCellAttributes(title);
 
           return `
-            <rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="${cellRadius}" fill="${fill}" stroke="${theme.panel}" stroke-width="1">
+            <rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" rx="${cellRadius}" fill="${fill}" stroke="${theme.panel}" stroke-width="1"${cellAttributes ? ` ${cellAttributes}` : ""}>
               ${title ? `<title>${escapeXml(title)}</title>` : ""}
             </rect>
           `;

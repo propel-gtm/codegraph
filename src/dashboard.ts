@@ -737,6 +737,38 @@ export function renderDashboardHtml(state: DashboardViewState): string {
         width: 100%;
       }
 
+      .heatmap-frame [data-codegraph-cell] {
+        cursor: pointer;
+        transition: stroke 120ms ease, stroke-width 120ms ease;
+      }
+
+      .heatmap-frame [data-codegraph-cell]:hover,
+      .heatmap-frame [data-codegraph-cell]:focus {
+        outline: none;
+        stroke: var(--black);
+        stroke-width: 2px;
+      }
+
+      .heatmap-tooltip {
+        background: var(--black);
+        color: var(--white);
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        left: 0;
+        line-height: 1.45;
+        max-width: min(340px, calc(100vw - 24px));
+        padding: 10px 12px;
+        pointer-events: none;
+        position: fixed;
+        top: 0;
+        white-space: pre-line;
+        z-index: 20;
+      }
+
+      .heatmap-tooltip[hidden] {
+        display: none;
+      }
+
       /* ── Metric tiles ── */
 
       .metrics-grid {
@@ -1054,11 +1086,73 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       <div id="dashboard-root">
         ${renderDashboardContent(state)}
       </div>
+      <div class="heatmap-tooltip" data-codegraph-heatmap-tooltip role="tooltip" hidden></div>
     </div>
     <script>
       const refreshIntervalMs = ${String(state.refreshIntervalMs)};
       const root = document.getElementById("dashboard-root");
+      const heatmapTooltip = document.querySelector("[data-codegraph-heatmap-tooltip]");
+      let activeHeatmapCell = null;
       let pendingRefresh = null;
+
+      function getHeatmapCell(target) {
+        if (!(target instanceof Element)) {
+          return null;
+        }
+
+        return target.closest("[data-codegraph-cell]");
+      }
+
+      function positionHeatmapTooltip(clientX, clientY) {
+        if (!heatmapTooltip || heatmapTooltip.hidden) {
+          return;
+        }
+
+        const viewportPadding = 12;
+        const offset = 14;
+        heatmapTooltip.style.left = "0px";
+        heatmapTooltip.style.top = "0px";
+
+        const tooltipRect = heatmapTooltip.getBoundingClientRect();
+        const rightLimit = window.innerWidth - tooltipRect.width - viewportPadding;
+        const bottomLimit = window.innerHeight - tooltipRect.height - viewportPadding;
+        const left = Math.max(
+          viewportPadding,
+          Math.min(clientX + offset, rightLimit),
+        );
+        const belowTop = clientY + offset;
+        const aboveTop = clientY - tooltipRect.height - offset;
+        const top = Math.max(
+          viewportPadding,
+          belowTop > bottomLimit ? aboveTop : belowTop,
+        );
+
+        heatmapTooltip.style.left = Math.round(left) + "px";
+        heatmapTooltip.style.top = Math.round(top) + "px";
+      }
+
+      function showHeatmapTooltip(cell, clientX, clientY) {
+        const tooltipText = cell.getAttribute("data-codegraph-tooltip");
+
+        if (!heatmapTooltip || !tooltipText) {
+          return;
+        }
+
+        activeHeatmapCell = cell;
+        heatmapTooltip.textContent = tooltipText;
+        heatmapTooltip.hidden = false;
+        positionHeatmapTooltip(clientX, clientY);
+      }
+
+      function hideHeatmapTooltip() {
+        activeHeatmapCell = null;
+
+        if (!heatmapTooltip) {
+          return;
+        }
+
+        heatmapTooltip.hidden = true;
+      }
 
       async function refreshDashboard(force) {
         if (!root || pendingRefresh) {
@@ -1080,6 +1174,7 @@ export function renderDashboardHtml(state: DashboardViewState): string {
           }
 
           root.innerHTML = await response.text();
+          hideHeatmapTooltip();
         })()
           .catch((error) => {
             console.error(error);
@@ -1095,6 +1190,64 @@ export function renderDashboardHtml(state: DashboardViewState): string {
       window.setInterval(() => {
         void refreshDashboard(false);
       }, refreshIntervalMs);
+
+      document.addEventListener("pointerover", (event) => {
+        const cell = getHeatmapCell(event.target);
+
+        if (!cell || cell === activeHeatmapCell) {
+          return;
+        }
+
+        showHeatmapTooltip(cell, event.clientX, event.clientY);
+      });
+
+      document.addEventListener("pointermove", (event) => {
+        if (!activeHeatmapCell) {
+          return;
+        }
+
+        positionHeatmapTooltip(event.clientX, event.clientY);
+      });
+
+      document.addEventListener("pointerout", (event) => {
+        const cell = getHeatmapCell(event.target);
+
+        if (!cell || cell !== activeHeatmapCell) {
+          return;
+        }
+
+        if (event.relatedTarget instanceof Node && cell.contains(event.relatedTarget)) {
+          return;
+        }
+
+        hideHeatmapTooltip();
+      });
+
+      document.addEventListener("focusin", (event) => {
+        const cell = getHeatmapCell(event.target);
+
+        if (!cell) {
+          return;
+        }
+
+        const cellRect = cell.getBoundingClientRect();
+        showHeatmapTooltip(
+          cell,
+          cellRect.left + cellRect.width / 2,
+          cellRect.top + cellRect.height / 2,
+        );
+      });
+
+      document.addEventListener("focusout", (event) => {
+        const cell = getHeatmapCell(event.target);
+
+        if (cell && cell === activeHeatmapCell) {
+          hideHeatmapTooltip();
+        }
+      });
+
+      window.addEventListener("resize", hideHeatmapTooltip);
+      window.addEventListener("scroll", hideHeatmapTooltip, true);
 
       document.addEventListener("click", (event) => {
         const target = event.target.closest("[data-codegraph-refresh]");

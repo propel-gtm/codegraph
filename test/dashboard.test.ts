@@ -237,11 +237,17 @@ test("dashboard renderers include live refresh affordances", () => {
   assert.match(content, /Providers/);
   assert.match(content, /Models/);
   assert.match(content, /390 in \/ 120 out/);
+  assert.match(content, /data-codegraph-cell="true"/);
+  assert.match(content, /data-codegraph-tooltip="2026-03-01/);
+  assert.match(content, /Cache read: 10/);
   assert.doesNotMatch(content, /MOST USED MODEL/);
   assert.doesNotMatch(content, /LATEST MODEL/);
   assert.doesNotMatch(content, /THEORETICAL/);
   assert.match(html, /setInterval/);
   assert.match(html, /\/dashboard-content/);
+  assert.match(html, /data-codegraph-heatmap-tooltip/);
+  assert.match(html, /showHeatmapTooltip/);
+  assert.match(html, /\.heatmap-tooltip/);
   assert.match(html, /300000/);
   assert.match(html, /--red: #ff1a00;/);
   assert.match(html, /--red-soft: #fff0ec;/);

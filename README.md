@@ -254,6 +254,7 @@ Behavior:
 - the browser view auto-refreshes every 5 minutes by default
 - the server also refreshes its in-memory snapshot on the same cadence
 - YTD, rolling `--last-N`, and current-year dashboards recalculate their date window on refresh, so they roll forward without a restart
+- hovering or focusing a heatmap day shows that day's total, input, output, cache, and model-level token breakdown
 - `Refresh now` forces an immediate reload without restarting the process
 - `/api/dashboard` exposes JSON with `refreshError`, `refreshIntervalMs`, and a `snapshot` payload for local integrations
 
